@@ -1,0 +1,7 @@
+.DS_Store
+__pycache__/
+*.pyc
+corpus/
+corpus_all.txt
+smoke*.json
+*.log

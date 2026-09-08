@@ -1,0 +1,70 @@
+{
+ "meta": {
+  "base": "http://ai4090:8080/v1",
+  "model": "Qwen3.8-Flash-Next",
+  "chars_per_token": 4.571,
+  "target_lengths": [
+   262144
+  ],
+  "depths": [
+   0,
+   25,
+   50,
+   75,
+   100
+  ],
+  "started": "2026-09-08 14:51:34"
+ },
+ "tests": [
+  {
+   "ok": true,
+   "note": "",
+   "answer": "2ED730E3",
+   "elapsed": 85.2,
+   "ttft": 85.2,
+   "prompt_tokens": 277882,
+   "completion_tokens": 8,
+   "finish": "stop",
+   "error": null,
+   "metrics": {
+    "words": 2,
+    "distinct2": null,
+    "max10gram_repeat": 0,
+    "function_word_ratio": null,
+    "avg_words_per_sentence": null,
+    "loop": false,
+    "caveman": false,
+    "repetitive": false
+   },
+   "task": "T1",
+   "target_tokens": 262144,
+   "depth": 0,
+   "question": "What is the launch code for Project OBSIDIAN? Reply with only the 8-character code."
+  },
+  {
+   "ok": true,
+   "note": "",
+   "answer": "DEE9A9DB",
+   "elapsed": 88.5,
+   "ttft": 86.3,
+   "prompt_tokens": 277880,
+   "completion_tokens": 7,
+   "finish": "stop",
+   "error": null,
+   "metrics": {
+    "words": 3,
+    "distinct2": null,
+    "max10gram_repeat": 0,
+    "function_word_ratio": null,
+    "avg_words_per_sentence": null,
+    "loop": false,
+    "caveman": false,
+    "repetitive": false
+   },
+   "task": "T1",
+   "target_tokens": 262144,
+   "depth": 25,
+   "question": "What is the launch code for Project ARGONAUT? Reply with only the 8-character code."
+  }
+ ]
+}
