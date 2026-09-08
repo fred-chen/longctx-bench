@@ -77,3 +77,21 @@ python3 make_report.py results.json report.html
 - **语料上限**：默认语料约 1.4M token，超长测试请往 `corpus/` 加 `.txt`
   （删除 `corpus_all.txt` 让 serve.py 重新合并）。
 - T4 计数、T2 全召回即使 GPT/Claude 级别也常失败，重点看**随长度增长的衰减趋势**。
+
+## 部署到 nginx（deploy/）
+
+适用于 Rocky/RHEL 等带 SELinux 的机器，把控制台挂在现有 nginx 的 `/longctx/` 路径下：
+
+```bash
+# 1) 代码放 /opt/longctx（含 corpus/），语料也可跑 download_corpus.sh 现场下载
+rsync -az --exclude .git ./ root@HOST:/opt/longctx/
+# 2) basic auth（/proxy 是 SSRF 护栏，建议保留）
+printf "user:%s\n" "$(openssl passwd -apr1 'PASSWORD')" > /etc/nginx/.htpasswd_longctx
+# 3) systemd 服务（serve.py 只绑 127.0.0.1，由 nginx 反代对外）
+cp deploy/longctx.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now longctx
+# 4) nginx（需 SELinux 允许 httpd 反代）
+cp deploy/longctx.conf /etc/nginx/default.d/longctx.conf
+setsebool -P httpd_can_network_connect 1; nginx -t && systemctl reload nginx
+```
+
+访问 `http://HOST/longctx/`。不想用密码就删掉 longctx.conf 里两行 auth_*（自担 SSRF 风险）。
