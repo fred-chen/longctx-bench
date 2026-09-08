@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LongCtx Console · 长上下文召回/检索/行为退化测试台</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--fg:#c9d1d9;--dim:#8b949e;
+--acc:#58a6ff;--ok:#3fb950;--bad:#f85149;--warn:#d29922;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:12px}
+header h1{font-size:17px;margin:0}
+header .sub{color:var(--dim);font-size:12px}
+main{display:grid;grid-template-columns:340px 1fr;gap:14px;padding:14px;max-width:1500px;margin:0 auto}
+@media(max-width:980px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:13px;margin:0 0 10px;color:var(--acc);text-transform:uppercase;letter-spacing:.05em}
+label{display:block;color:var(--dim);font-size:12px;margin:8px 0 3px}
+input[type=text],input[type=password],input[type=number],select,textarea{
+width:100%;background:#0d1117;color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px}
+textarea{resize:vertical}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.checks label{display:flex;align-items:center;gap:7px;color:var(--fg);margin:6px 0;font-size:13px;cursor:pointer}
+.checks input{width:auto}
+button{background:#21262d;color:var(--fg);border:1px solid var(--border);border-radius:6px;
+padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--acc)}
+button.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+#status{font-size:12px;color:var(--dim);margin-top:8px;word-break:break-all}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:5px 8px;text-align:left}
+th{background:#1c2129;color:var(--dim);font-weight:600}
+td.pass{color:var(--ok);font-weight:700}td.fail{color:var(--bad);font-weight:700}
+td.warn{color:var(--warn);font-weight:700}
+.hm td{width:64px;height:34px;text-align:center;font-weight:700;font-size:12px}
+.hm .p{background:#12461c;color:#7ee787}.hm .f{background:#5a1e1e;color:#ffa198}.hm .n{color:#30363d}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-right:4px}
+.badge.loop{background:#5a1e1e;color:#ffa198}.badge.caveman{background:#4d3800;color:#e3b341}
+.badge.rep{background:#3d2b52;color:#d2a8ff}.badge.thinking{background:#0c3b5e;color:#79c0ff}
+#log{background:#0a0e14;border:1px solid var(--border);border-radius:6px;padding:10px;
+height:220px;overflow:auto;font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+#log .ok{color:var(--ok)}#log .bad{color:var(--bad)}#log .dim{color:var(--dim)}
+details{margin-top:8px}summary{cursor:pointer;color:var(--dim);font-size:12px}
+pre.ans{background:#0a0e14;border:1px solid var(--border);border-radius:6px;padding:8px;
+font-size:12px;white-space:pre-wrap;max-height:300px;overflow:auto;margin:6px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1200px){.grid2{grid-template-columns:1fr}}
+.hint{font-size:11.5px;color:var(--dim);margin-top:6px}
+a{color:var(--acc)}
+#running-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warn);margin-right:6px;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+.metric{font-size:12px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧵 LongCtx Console · Standalone</h1>
+  <span class="sub">长上下文 召回/检索/多跳/计数/退化测试 · 单文件版，直连推理端点（需 CORS）</span>
+</header>
+<main>
+<!-- ============================== LEFT: config ============================== -->
+<div>
+  <div class="panel">
+    <h2>1. Endpoint</h2>
+    <label>Base URL (OpenAI 兼容，含 /v1)</label>
+    <input type="text" id="base" value="http://ai395:8080/v1">
+    <div class="row">
+      <div><label>Model ID</label><input type="text" id="model" value="Qwen3.8-Flash-Next"></div>
+      <div style="flex:0 0 auto;align-self:flex-end"><label>&nbsp;</label><button id="btn-models" title="GET /models">拉取模型</button></div>
+    </div>
+    <div id="model-list"></div>
+    <label>API Key (可选)</label>
+    <input type="password" id="apikey" placeholder="sk-...">
+    <div class="row" style="margin-top:8px">
+      <div><label>max_tokens 短答</label><input type="number" id="mt-short" value="768"></div>
+      <div><label>max_tokens 长文</label><input type="number" id="mt-long" value="2600"></div>
+    </div>
+    <div class="checks">
+      <label>思考模式 (enable_thinking)</label>
+      <select id="opt-thinkmode"><option value="off" selected>关闭（默认，避免思考吃光 max_tokens）</option><option value="on">开启</option><option value="default">不干预（不发该参数，适用于不支持的模型）</option></select>
+      <label><input type="checkbox" id="opt-stream" checked> 流式 (测 TTFT / tok/s)</label>
+    </div>
+    <div class="metric">token 校准系数 chars/token: <b id="cpc">—（首次运行自动校准）</b></div>
+  </div>
+
+  <div class="panel">
+    <h2>2. Haystack 语料</h2>
+    <select id="corpus-src">
+      <option value="file" selected>选择本地 txt 文件（推荐：corpus_all.txt 或多本书）</option>
+      <option value="tiny">内置小语料（~40KB，冒烟测试用）</option>
+      <option value="paste">粘贴自定义文本</option>
+    </select>
+    <div id="corpus-file-box" style="display:none">
+      <label>支持多选 .txt，合计上限 20MB</label>
+      <input type="file" id="corpus-file" accept=".txt,text/plain" multiple>
+    </div>
+    <div id="corpus-paste-box" style="display:none">
+      <textarea id="corpus-paste" rows="5" placeholder="粘贴任意长文本…"></textarea>
+    </div>
+    <div class="btns"><button id="btn-load">加载语料</button><span id="corpus-info" class="metric"></span></div>
+  </div>
+
+  <div class="panel">
+    <h2>3. 测试项</h2>
+    <label>上下文长度 (tokens，逗号分隔，目标值)</label>
+    <input type="text" id="lengths" value="131072,262144,327680">
+    <label>NIAH 深度 % (needle 位置)</label>
+    <input type="text" id="depths" value="0,25,50,75,100">
+    <div class="checks">
+      <label><input type="checkbox" id="t1" checked> T1 单针 NIAH 网格（召回热图）</label>
+      <label><input type="checkbox" id="t2" checked> T2 五针多路召回（检索）</label>
+      <label><input type="checkbox" id="t3" checked> T3 三跳事实链（推理）</label>
+      <label><input type="checkbox" id="t4" checked> T4 计数聚合 ×7</label>
+      <label><input type="checkbox" id="t5" checked> T5 强制长文生成（退化探针）</label>
+    </div>
+    <div class="btns">
+      <button id="btn-run" class="primary">▶ 开始测试</button>
+      <button id="btn-stop" class="danger" disabled>■ 停止</button>
+      <button id="btn-export">导出 JSON</button>
+    </div>
+    <div id="status">待命</div>
+  </div>
+</div>
+
+<!-- ============================== RIGHT: results ============================== -->
+<div>
+  <div class="panel">
+    <h2>结果总览</h2>
+    <div id="summary"><span class="metric">尚未运行。提示：先用小长度（如 8192）+ T5 冒烟一遍。</span></div>
+    <div id="degen-panel"></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><h2>召回热图 (T1 长度×深度)</h2><div id="heatmap"><span class="metric">—</span></div></div>
+    <div class="panel"><h2>结果明细</h2><div id="results" style="max-height:480px;overflow:auto"><span class="metric">—</span></div></div>
+  </div>
+  <div class="panel">
+    <h2>实时日志 <span id="dot"></span></h2>
+    <div id="log"></div>
+  </div>
+</div>
+</main>
+
+<script>
+"use strict";
+/* ================= state ================= */
+const $=id=>document.getElementById(id);
+const S={corpus:null,cpc:null,queue:[],running:false,stop:false,results:[],lastDelta:0};
+const now=()=>new Date().toLocaleTimeString();
+function log(msg,cls){const d=$("log");d.innerHTML+=`<span class="dim">[${now()}]</span> <span class="${cls||''}">${esc(msg)}</span>\n`;d.scrollTop=d.scrollHeight;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function rndHex(n){let s="";
+  if(self.crypto&&crypto.getRandomValues){const a=new Uint8Array(Math.ceil(n/2));crypto.getRandomValues(a);s=[...a].map(b=>b.toString(16).padStart(2,"0")).join("");}
+  while(s.length<n)s+=Math.random().toString(16).slice(2);
+  return s.slice(0,n);} // crypto.randomUUID 在 http 明文页不可用，改用 getRandomValues 兼容
+function uuid8(){return rndHex(8).toUpperCase();}
+function hex4(){return rndHex(4);}
+
+/* ================= degeneration metrics (mirror bench.py) ================= */
+const FUNC=new Set(("a an the and or but if then than that this these those of in on at to for from by with "+
+"without within into onto about above below under over between during while as is are was were be been being am "+
+"do does did done have has had having will would shall should can could may might must not no nor so yet both "+
+"either each every all any some few more most other another such own same it its he she they him her them his "+
+"hers theirs our your my me we us you i who whom which what when where how why all's there here too very just "+
+"also once upon per via one two three").split(/\s+/));
+function analyzeText(text){
+  const words=(text.toLowerCase().match(/[a-z'’]+/g))||[];
+  const n=words.length, out={words:n,distinct2:null,max10gram_repeat:0,
+    function_word_ratio:null,avg_words_per_sentence:null,loop:false,caveman:false,repetitive:false};
+  if(n<5)return out;
+  const big=new Set();for(let i=0;i+1<n;i++)big.add(words[i]+" "+words[i+1]);
+  out.distinct2=+(big.size/Math.max(1,n-1)).toFixed(3);
+  const c=new Map();let mx=0;
+  for(let i=0;i+10<=n;i++){const g=words.slice(i,i+10).join(" ");const v=(c.get(g)||0)+1;c.set(g,v);if(v>mx)mx=v;}
+  out.max10gram_repeat=mx;
+  out.function_word_ratio=+(words.filter(w=>FUNC.has(w)).length/n).toFixed(3);
+  const sents=text.split(/[.!?\n]+/).filter(s=>s.trim()).length||1;
+  out.avg_words_per_sentence=+(n/sents).toFixed(1);
+  out.loop=out.max10gram_repeat>=3;
+  out.repetitive=out.distinct2<0.60&&n>150;
+  out.caveman=n>80&&out.function_word_ratio<0.30&&out.avg_words_per_sentence<10;
+  return out;
+}
+
+/* ================= api via /proxy ================= */
+async function chat({maxTokens,onDelta}){
+  const base=$("base").value.trim(),payload={
+    model:$("model").value.trim(),
+    messages:[],temperature:0,max_tokens:maxTokens,
+    stream:$("opt-stream").checked,
+  };
+  if(payload.stream)payload.stream_options={include_usage:true};
+  const tm=$("opt-thinkmode").value;
+  if(tm!=="default")payload.chat_template_kwargs={enable_thinking:tm==="on"};
+  return {base,payload};
+}
+async function callApi(messages,maxTokens,onDelta){
+  const {base,payload}=await chat({maxTokens});
+  payload.messages=messages;
+  const t0=performance.now();let ttft=null,content="",reasoning="",usage=null,finish=null;
+  let resp;
+  const hdrs={"Content-Type":"application/json"};
+  const ak=$("apikey").value.trim();if(ak)hdrs["Authorization"]="Bearer "+ak;
+  try{
+    resp=await fetch(base.replace(/\/$/,"")+"/chat/completions",{method:"POST",headers:hdrs,
+      body:JSON.stringify(payload),mode:"cors"});
+  }catch(e){
+    return{error:`请求发送失败: ${e.message}（若为 CORS/网络错误：给服务端加 CORS 头，如 vLLM 加 --allow-origins '*'，llama.cpp 加 --origins '*'；或确认端点可达/页面用https时端点也是https）`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage:null,finish:null,ttft:null};
+  }
+  const ctype=resp.headers.get("content-type")||"";
+  if(!resp.ok){const t=await resp.text();return{error:`HTTP ${resp.status}: ${t.slice(0,300)}`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage,finish,ttft};}
+  if(payload.stream){
+    const reader=resp.body.getReader(),dec=new TextDecoder();let buf="",doneFlag=false;
+    for(;;){
+      const {done,value}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let nl;
+      while((nl=buf.indexOf("\n"))>=0){
+        const line=buf.slice(0,nl).trim();buf=buf.slice(nl+1);
+        if(!line.startsWith("data:")){
+          if(line.startsWith("{")&&line.includes('"error"')){try{return{error:JSON.parse(line).error,content,reasoning,elapsed:(performance.now()-t0)/1000,usage,finish,ttft};}catch(e){}}
+          continue;}
+        const data=line.slice(5).trim();if(data==="[DONE]"){doneFlag=true;break;}
+        let d;try{d=JSON.parse(data);}catch(e){continue;}
+        if(d.usage)usage=d.usage;
+        for(const ch of (d.choices||[])){
+          if(ch.finish_reason)finish=ch.finish_reason;
+          const dl=ch.delta||{};
+          if(dl.content){if(ttft===null)ttft=performance.now()-t0;content+=dl.content;if(onDelta)onDelta("c",dl.content);}
+          if(dl.reasoning_content){if(ttft===null)ttft=performance.now()-t0;reasoning+=dl.reasoning_content;if(onDelta)onDelta("r",dl.reasoning_content);}
+        }
+      }
+      if(S.stop||doneFlag){try{reader.cancel()}catch(e){}break;}
+    }
+  }else{
+    const d=await resp.json();
+    if(d.error)return{error:JSON.stringify(d.error).slice(0,300),content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage:null,finish:null,ttft:null};
+    const ch=(d.choices||[{}])[0];usage=d.usage||null;finish=ch.finish_reason||null;
+    content=(ch.message&&ch.message.content)||"";reasoning=(ch.message&&ch.message.reasoning_content)||"";
+  }
+  return {error:null,content,reasoning,usage,finish,ttft,elapsed:(performance.now()-t0)/1000};
+}
+
+/* ================= corpus & calibration ================= */
+const TINY_CORPUS="Keeper waits above stories young one water brothers with closes storms funerals the old to and the and salt their indistinguishable sea at that gulls harbor village catalogues professor closes at the closes waits stories the tell from autumn to the the until covers dusk boards the sentence while lamp distant market dusk in log folded brothers becomes ocean sea gulls at an pass weddings while the takes begins woolen one closes back bicycle carrying bread before lamp spectacles somehow and write the carrying carries for the each gives path reclaim young covers and the stairs of the keeper rings the sailors with girls and from dusk weather the woolen the his arrives and weddings market arriving back and nobody their walk why spectacles wings sea at stamped letters and room the while one gives frozen in packets with postman over no on to the fog for at reef every path every stamps bread waits everyone weddings write stairs gives for becomes the morning the fishermen becomes the cross war a while oilskin smells keeper letters the keeper smells bakery smells fox bell matters its lamp winter frozen quick lighthouse the the letters the gulls caps lights dusts and an the instruments stamps about back somehow while arriving the everyone waits for everyone distant church moths for at log and beyond the spiral where the the about distant the at keeper water in with cobblestones lazy young beyond cobblestones inside keeper moths and postman cats with why harbor fog writing bell one the church and letters the distant the the stamps winter the matters his spiral the over pass across bicycle lighthouse dusts it lazy kings across carrying a their spectacles practices.\n\nThe with stairs a letter village the until somehow and crunching moths village the difficult the kings the the salt the for stamps at below that the for a stamped dogs dogs weather the knows in the his cats postman gives the hulls arrives with write the distant below knows ships gravel pass church old the nobody the the the postman arriving a letters the measuring covers and with ocean faces that the the and weather moths on to at wooden waits no for bearing letters hulls the to lights dogs keeper stalls one the the lighthouse the that and why bakery arrives climbs becomes becomes every over fox arriving hulls above distant carries the morning and the that the dogs and the to and salt and its boots in it the the every at stamps on sometimes measuring closes sentence the the that and every the keeper carries alike jumps the begins lamp reclaim quick begins arriving keeper trim the why an hulls covers from at boots while the across from church with begins cities the storms bread log along sailors letter in funerals them the dogs kings sea sea boots the funerals reclaim and that his along them alike the the the funerals bread spectacles sound in the that nobody gives morning war harbor everyone sea woolen young with salt takes young the with slate with harbor begins climbs in a measuring with the and morning one the the brothers waits bell spiral wings the village spiral cross fishermen and news gravel the ships a caps their wooden with jumps gravel indistinguishable sometimes the.\n\nJumps packets crunching the old school and sea where the below distant letters winter walk sailors somehow lamp walk of every the sea writing instruments the in news keeper water and dusk for letters boots to the storms arriving dusts lamp sea young children jumps moths to at in letters reclaim the and winter harbor back brown gravel indistinguishable war children old every tell carries the salt where spiral winter stories lamp that and professor boards across kings pass to gives and brass the walk postman at jumps and old fox jumps stamped funerals indistinguishable log and why and gives cities bakery the above fishermen bakery for it the everyone funerals boards dusts reef below the ships the cross each moths morning news postman about one every fox young professor stamps woodsmoke fishermen spiral storms letters wings nobody oilskin funerals with frozen the and his school tell sometimes and the children gives the winter with crunching becomes their and while and reef a lamp the on oilskin letters why the and the that bread funerals begins quick their winter the to the for its sailors everyone over carrying slate catalogues smells letters closes across faces climbs bakery in with and and and boots wooden for keeper frozen hulls an a lighthouse tell that the in and professor takes stamped letters difficult funerals morning carries faces funerals at the sentence at jumps that flour closes arriving ocean while his a below letters dogs sailors autumn in bicycle distant inside the them from stories professor jumps professor the while and rings winter the back arriving and the and water their bakery carries sea bearing with why and difficult girls practices winter of each of pass smells stamps above sometimes for practices oilskin girls the flour path every tell cobblestones catalogues a ships girls the lighthouse crunching woodsmoke above bearing his slate old at autumn fox church at bell children brass in his reef brass rings to the the path no one one every covers becomes that and letters why jumps to sometimes girls the funerals them children and beyond beyond girls market their the the carries winter bicycle every cats the catalogues alike the where cross with smells weddings bell everyone lazy the the rings while them news slate each the war.\n\nInside woolen covers nobody crunching the boots faces gravel one waits covers ships ocean fox stamps to and folded sea everyone and its girls bicycle takes of along stories the distant about the measuring path moths keeper bread children and alike woolen log letter folded with takes dogs difficult kings catalogues for indistinguishable becomes pass wooden write stories stamped the them cobblestones faces morning a path bell stories becomes lights to knows war the frozen carrying woodsmoke stamps stamps the in news the salt slate church from with everyone covers stairs a spiral girls beyond and difficult weddings becomes the them on kings them takes morning becomes the and their trim the from their caps salt letters in difficult at that over the the packets the bearing carries beyond inside walk gravel faces at weddings the the bicycle lights flour and across catalogues weather writing reef their walk bread packets for room gives fishermen and writing sentence over lights while sea the and at why its rings the young everyone that across one gives bread with cities village climbs keeper sound while cities that wooden letters room practices and sometimes letters indistinguishable begins sailors the with lights smells at old room in slate lights professor and across moths and spectacles and where in young carrying carries closes the and in village weather the the brown water slate sometimes the woolen room one and why carries of becomes bread dogs the cross above boards storms over the weddings brass room the write woodsmoke below wings sea letters below for while spectacles gravel in the bicycle while waits ships quick arriving to stamps practices funerals and pass for that and every the the smells one the winter kings school cities.\n\nFor the and village bell war wings storms and lighthouse everyone about the lazy and the war about the at and everyone them ocean woolen stamped where write stairs crunching log and the carries the one while and wings hulls inside one folded crunching sea to cities the write the write arrives the harbor the kings beyond oilskin a every one and one at fishermen to stories cross why ships folded until gives the their with with why dogs catalogues the bread difficult professor every news sailors inside while no sea at at woodsmoke the the sea reclaim gravel bicycle walk on cobblestones tell winter the in dusts caps along carrying the wooden of and the moths sea lazy that smells cities why in one begins packets weather and fishermen sentence for every weddings lamp brown at stamps slate one his letter keeper reclaim of boots caps sometimes bicycle with with and write and ships everyone faces the bread from sea above while church indistinguishable it boots spiral takes distant young winter old letters beyond brothers the weddings the gives trim smells autumn war sometimes an brass of the water practices begins wings kings harbor somehow nobody school school the at children folded woodsmoke with in ships the bread and and of climbs frozen market log boots sea waits and and funerals carries smells above the in the no old distant quick why the smells nobody gives folded sailors school smells covers stories log the that closes the girls folded and the gives cats in begins somehow wings quick cities in and the an arrives reef old letters the the tell pass woodsmoke old the stamped above pass sentence brown the boots from instruments folded and an and girls pass while before for becomes church sea from in before waits measuring becomes climbs in the their the spiral waits spectacles walk from frozen wings boards war about and bearing at a war war jumps every at with a ships everyone each news pass quick and the sea fog one their news the with sometimes letter spiral every fox about indistinguishable the a the waits to dusk old letters with.\n\nTo lighthouse arrives frozen spiral sound to and cities packets rings faces the weather the ships slate lights one tell church woolen about reclaim moths and to ocean an dusts that spiral in the the an news cobblestones practices ships matters why lamp gulls reef sailors for the the packets a harbor keeper bread hulls sentence the sailors the nobody of brass old wings one their covers and the back becomes writing professor somehow boards above the boards closes bread sea and bakery letters gives and the the over the an rings one of gives and an somehow the sometimes one the difficult why for cities and lights a fishermen with their at sea funerals alike bakery sailors sailors moths every letters stamped woolen somehow wooden alike write about faces funerals inside the with autumn lazy sea cobblestones stamped his sentence where the every rings path difficult before stairs flour the wooden the sea the arrives the of and the their cobblestones along sentence back the woodsmoke and the beyond stalls winter cobblestones funerals of caps folded old ships lamp news spiral moths the instruments boots inside to weather with winter fog every across stories moths bicycle them from sound market dusts distant and water catalogues everyone with arriving folded winter inside letters the lighthouse bicycle crunching and write sea below the cobblestones bearing stories school the the and and in closes measuring woolen stamped the the while the keeper to cobblestones professor fishermen war and with stories every rings below the the tell over about the at on slate cities sound a the village the closes slate its autumn pass with old matters why the autumn fox at and the keeper them brothers sea in lighthouse wings with walk for difficult winter brown storms room one the arrives and room market sea cats the stamped for bread stairs the tell at the lazy news and of the storms somehow distant fox the indistinguishable bakery ships the the that.\n\nReclaim a funerals room a war sentence the trim alike and sea carrying professor stories hulls with the in water quick inside practices and bearing one write stamps the them trim village distant in smells a old harbor on the his practices winter ocean about children moths indistinguishable instruments and flour the sound winter school a reef letters funerals fox to in of nobody bearing that the the boots the and crunching the salt oilskin catalogues his wings nobody water knows knows one across spectacles quick lazy and hulls smells dusk boards weather the everyone old closes girls gulls to lighthouse while lazy where cities old spiral postman the letters dogs dogs sailors morning his a moths sailors spectacles and with tell sea stalls and with that the the the wings sea of ocean packets cities bread pass pass where while while writing difficult faces moths to that faces catalogues catalogues path the in every in weather of room pass school caps gravel sea in over arrives woodsmoke frozen stories in kings letters their every cats and why writing path an bearing dogs the the dogs and the letter in postman knows cross stories water gulls reef ocean that their the the path to and the carries that path and faces about quick arrives rings brothers rings his before that and for stalls postman matters and in the the frozen sentence the letters smells weddings stairs where moths every write rings the spectacles the the distant professor boots a brothers for waits bearing to sea room lazy folded pass slate winter takes it and to oilskin catalogues smells sometimes lights the and of dusts faces cats room while arrives market boots sound climbs nobody them measuring indistinguishable stamps their to no the dusts letter woodsmoke market smells lights on no a spectacles of funerals the children slate of cross that nobody an climbs hulls climbs bread hulls boots cats sound arrives spiral of boots log in each distant stairs bakery distant ships.\n\nKeeper lighthouse before slate stamped carrying and along ships cities in cities the pass and no while fox for weather and his the and catalogues school no over the woodsmoke cats with news quick stamps and fishermen letters dusk its the room the practices below wings wooden the begins a letters closes below instruments lamp a harbor back fishermen woolen in professor letters in the and with for ocean ocean catalogues the and writing sea church back over old from the brass measuring lamp the boots somehow brown and matters rings cities old and it reef spiral in with that the arrives in practices the back until pass in why and jumps in weather matters letters sound the the stamps back beyond flour and everyone and and harbor each cobblestones a in storms and along oilskin for at fox girls the the professor spectacles brass on market winter cities village slate stamps for carries the at everyone no the stairs every begins and difficult arriving moths the knows a the wooden village sentence lighthouse on wings in matters the before sentence the one school kings becomes above lights somehow the knows on with writing below children cross inside flour and takes instruments and church the the wooden arriving the a and the slate their the bell takes old in letters bakery bicycle climbs slate packets storms letters that gulls boots with morning across matters postman moths closes fox bakery brown beyond young the school and reclaim in market the smells and begins them postman with climbs beyond news weather the stairs the dusts reclaim with their with becomes the moths one carrying ships for his the across write stamps one the with fog from covers winter the smells that morning why for from storms church one the letters.\n\nBread weddings stairs until the with quick spiral nobody their one spectacles gulls weddings wings school nobody one folded takes the instruments girls lamp in bicycle moths room dogs over the tell while with crunching difficult brothers alike church bell of the while the in war professor lights gravel brothers bakery with the why somehow carries indistinguishable letter beyond frozen and the sea and indistinguishable about that to to on that for news on and walk funerals postman pass the for weather covers crunching the caps ocean carrying lights its moths to with sailors for hulls indistinguishable news it dusk stories for carrying cities quick tell log one why reclaim every bakery at the and it the inside cobblestones lighthouse professor brass spectacles dusts and while letters the sailors wings moths sometimes professor and trim in measuring lamp old the begins in the fox letters one morning the and the the in slate and the while caps over fishermen gulls a market about weddings at sound sailors that covers begins difficult the the spectacles news gives and fox while and and stalls bakery climbs why letter the becomes distant letters a knows the keeper professor fox takes quick brown flour with harbor to reef harbor every knows jumps along wooden at and them stamped bearing and stories with begins the ocean his lighthouse each kings letters school professor from the weddings sometimes with woodsmoke about in while brown at fox above flour the an write and and and each the stairs the bell reclaim at woolen letters the each the knows instruments stairs lighthouse arriving fog bicycle room spiral catalogues at war the packets somehow the them walk with of at on to the at old above cross at that the on reclaim hulls fox matters keeper the the and closes takes bread inside and flour inside cats letter smells the them frozen dusts the their winter children sea the its sentence and with sailors.\n\nThe the difficult dusk lighthouse along writing arriving the becomes flour begins weddings postman the letters until indistinguishable bell arriving oilskin that the faces wooden smells and reclaim storms instruments waits one the pass woodsmoke its faces brown weather packets sometimes until to water the on letter sea smells waits market sound in the sound their the funerals its that log the the their lamp the letters to bicycle the gulls a news somehow the keeper bread tell for folded cities folded catalogues no the write climbs woolen and dogs postman the the reclaim over brothers while pass gulls bell its at the in somehow the takes brothers gives every stalls the reclaim every woodsmoke nobody old gravel that lamp inside letters dogs about while from letters cross sometimes bell practices sea the in waits covers cross their woodsmoke caps gulls smells a to with funerals everyone lamp gives writing the letters of wooden the trim old woodsmoke on at indistinguishable dogs one stories in the and the stamps room kings church storms in lighthouse caps of quick ships instruments the carrying its stalls the kings the distant knows their folded woodsmoke and harbor folded church oilskin to the salt the the instruments fox one in the arriving old the the the girls an folded the morning somehow gives brothers packets nobody over professor girls them gravel their one smells the fog professor with the crunching the with storms lamp ocean them indistinguishable lighthouse the keeper children the the bread climbs lazy walk dusk one school on at stairs in rings cities caps back church fog climbs and storms catalogues the with the.\n\nThe the path covers woodsmoke of that with fishermen in salt of brothers and to war spiral storms the hulls school the in jumps sea the funerals the alike morning sea the weather the carries path and bicycle and sailors from reef along dusk lamp morning nobody lamp sound letter below ocean trim ships the write matters to reclaim stamped for kings along trim pass morning the with the professor difficult the closes boards that brown sea his stamped sound from nobody wooden storms the difficult postman on frozen nobody in for their fox from and the autumn wings children bread and gulls matters with old spiral letters folded the and quick a sound gives the young covers a ocean and the matters their somehow ocean oilskin the faces at to cities stamped for gives and lazy across at water autumn over and to village an lamp stairs distant and and from the dogs jumps brothers spectacles stamps the in jumps one the in the no sound salt letters sea distant arrives brothers in the tell walk harbor one for closes and kings the where harbor harbor news morning until stalls below below lighthouse with dusk no the waits stairs that jumps moths and his the and one cats carries old waits about begins bicycle gravel for salt one on in and nobody gulls at their sentence for practices the about boots the lighthouse while on bread sea measuring catalogues brown with cities across and and boots fishermen that funerals with over village morning the waits begins back moths tell difficult sailors while a an children instruments old walk professor until the old old in and harbor sound fox and of sailors path where boards postman room stairs covers at and and children letters one stalls the lighthouse the harbor alike every school from the path along and with to stamps it path one back the his at the above packets that becomes the with sometimes becomes slate the the knows the and dogs and on the log and it packets closes waits.\n\nOn spiral salt their from boots rings walk frozen reef school storms letter over the indistinguishable and reclaim arrives the bakery at the and the the on with and cities sound village instruments stamps climbs war gravel with on morning brass that cobblestones the writing along one one the brothers stamps bearing kings why children with catalogues the catalogues cross lights the distant quick the every becomes closes covers weddings waits dusk keeper war writing with the old reclaim where oilskin them his sometimes path hulls on to on everyone carries from and packets room their quick the bearing writing weddings oilskin sea carrying and water slate at lighthouse and the inside market smells to one crunching their nobody reclaim one and boots pass takes brown lazy stories woodsmoke gulls weddings carrying water begins and water an and the that the each flour fishermen and no a sailors and instruments arrives them brown instruments and carries below in from folded and for above the dusk climbs log the bell for the every old its the his across the sentence their to bicycle caps with girls that and and trim where the school dusts the one alike the catalogues the carries to sentence alike.\n\nFunerals log the lamp at catalogues gulls cats cities on at catalogues moths hulls sailors his the brown the the boards the dusts indistinguishable quick slate waits nobody in its fox with dogs ships trim weddings every indistinguishable at children room the and the the ships the cats harbor lighthouse the the kings alike cities dogs in girls to sound rings one one the fishermen the arriving at above fox flour letter market their the in of on along to while children professor in closes sea arrives the them old packets over about the waits closes and tell the about an salt bread village tell the its trim woolen quick sentence back slate the cats and for and and instruments and brass in closes the the and for ocean bell over weather and to trim to a oilskin and quick to waits the bicycle fog on the packets on news above sea harbor sea that arrives indistinguishable and and log one frozen postman of and while the wings lazy the the climbs salt cross every their ships walk it the the lights from sea one one before the salt the letters on reef wooden news inside catalogues market beyond carrying why funerals pass below them brass every cross in and the its letters the bread news reclaim alike the lights faces harbor instruments and their until walk with letter and packets dogs bakery in at lighthouse and fox and the to his the begins writing smells their log measuring cities and the bicycle.\n\nKings carrying the sea in and to village path lights the in for frozen a news practices no begins professor professor every along the dogs with instruments arriving measuring dusts arrives the lazy bakery cross letters no bread practices for on professor in lamp to fog walk reclaim stamped the ocean instruments sailors news sailors reclaim spiral fishermen ships of slate climbs oilskin stamps sailors indistinguishable and catalogues in the gulls one below at weddings in sound woodsmoke and with flour the arrives the where the and begins the path sailors closes reclaim spectacles stories and while where old weather caps beyond begins postman the to war his bearing everyone the cobblestones matters the the carries their arrives sea sea the his and stamps dusts matters one professor professor them alike about instruments spectacles pass takes brass and practices somehow lights rings and log tell letters that the the in trim it spiral somehow in of it in bread at to a postman the their that moths and morning autumn flour cross bell with church of cross salt quick and his sea autumn a arrives spectacles carrying autumn the the its gulls salt on catalogues sentence covers becomes sea kings to instruments wings climbs the no one every news matters pass fog dusts to fox bicycle bell pass tell at the slate ships where letters and gives where spiral boots sea one at bicycle to to from young tell brown one faces bell letters the in crunching stamps gulls winter cities room rings and rings log with it their brown a their a path professor cobblestones stamped the letters and the and write morning the dogs lazy begins waits one lighthouse school letters and in carries practices while to distant with wooden matters and bearing cobblestones boots oilskin and room that a caps below letters autumn indistinguishable letters one matters and salt storms sailors cities at at professor the cross news stories reef for sea weddings stamped the.\n\nCats market professor write the dusts below spiral morning sea in for to sailors writing the the log reef hulls folded the while nobody the the the alike sea the frozen young measuring storms and the the gravel sea the brown wings that the hulls stairs inside school quick sea at gulls brass arrives at ships knows letters until their the sometimes takes the professor climbs for reclaim an write difficult difficult at hulls instruments crunching reclaim bakery carrying gulls dusk the letters church bakery room morning carrying the across moths dogs writing log the instruments stamps gives dusts letters lighthouse measuring market folded from market war bicycle across salt gulls the waits in fog below lamp that becomes the where the one and above brothers log across with and the rings below indistinguishable sometimes village until dusk spectacles where with and its at write writing from instruments young arriving the autumn and becomes funerals ocean one of fog professor wooden and distant sometimes matters flour everyone it to the gulls why begins their morning folded begins an storms news of stories folded sailors fox letters and the sometimes carrying covers the autumn takes to old that gulls fog each on to with bearing nobody the at and with while brown that woodsmoke harbor salt folded and with carries a wooden rings tell the cats on in a becomes boots at cats where while brass and woodsmoke on the his gives over one market the fog weather over bell where young arriving in and keeper indistinguishable to flour with oilskin one the its and water dusts kings the children sea fox lazy the keeper bell and.\n\nWhile arriving one old girls lamp an the room instruments the everyone nobody why the his practices gives everyone below the the girls bicycle crunching across reef and every its old tell the to the bicycle each one crunching the one and on woolen quick on market church on below over bread sometimes reclaim tell catalogues lighthouse each with the walk packets walk sea and winter a at dusk across closes morning spectacles while the letter brothers that begins takes moths dusk moths in bicycle weather frozen before before of before the while young slate and the stamps bicycle alike moths and arrives becomes in news on at cross gravel with their with church and letters and difficult of arrives keeper autumn pass quick with back news gives waits at letter slate to its sea the slate wooden boards and each dusk indistinguishable bakery the young log closes write closes the slate market on one a begins dusts takes wooden and one bell caps trim along woodsmoke it over kings stairs professor children of cross over reef stories for gives that cats frozen and room in ships salt stamped storms every the stories write young difficult sentence the the wooden autumn quick log walk water a fox in their dogs the their boots the lazy above bell news the instruments arriving gravel trim storms war before tell to professor the on begins for the for woodsmoke no fox lazy caps gulls the woolen storms war cobblestones the hulls the crunching the their jumps climbs beyond the across every nobody their a sentence bicycle sea postman water while its from climbs bakery cats the crunching below stamps an in sentence ocean the and while begins room and above letter becomes cross back the the bicycle sound across along every and brown from why in the difficult begins bicycle keeper professor below for of their dogs old autumn harbor at it and pass from somehow.\n\nIn reclaim with with keeper the with somehow spiral across dogs arrives somehow the and sea weddings the moths postman arriving and sometimes the their weather lazy cities bakery stamped fox sea the room for brass arrives at below gulls inside from inside bakery professor village dogs and over winter the and salt smells on pass boots kings sea a the carrying weddings reef at weather the the every children faces autumn one carrying frozen to crunching quick bell bread spiral caps while the and them the market about with beyond writing with bicycle tell somehow begins the lamp and morning carrying flour lazy the where keeper brown autumn slate keeper and with on brothers faces to no while waits their war gravel a wings in waits on while closes of that weather professor dusts fox old autumn funerals and smells the fishermen spectacles distant each over stories caps sea where covers bell autumn carries takes the the village flour until lighthouse moths with it and where across on one weddings girls arrives reef village stamped young walk cross the fox winter children and tell ships alike stories from weather from bicycle children brown boots dusts sailors the back it frozen becomes crunching dusts the bearing in children for sea caps until the packets keeper and kings packets from at the moths quick salt reclaim and woodsmoke his the each inside salt that ships measuring fog to nobody an with while in stories news his from.\n\nFlour room sea becomes with woolen back the the why the room knows alike the stalls it oilskin of that catalogues weather bearing inside on ocean sea everyone carries children the bakery instruments that their young professor arriving it wings village the and winter winter nobody why wooden arrives sound its the dusk the the sea of across with carries pass across to sentence with salt brass trim climbs one measuring sometimes the in that above tell their oilskin bicycle the the takes harbor from climbs letters and inside distant with a measuring at sound sound slate them measuring to along waits to gives his where them moths the stamped arriving trim kings the keeper quick while every with rings sound measuring of old letters sound the at oilskin and jumps from that the dusk in storms stalls the boards in it along their woodsmoke salt winter the the their carries moths for to that lights sea weather to an somehow folded tell in sea inside with sailors ocean faces school from fishermen room reclaim difficult woodsmoke on salt packets writing market every an the ocean market folded sea wings pass crunching young write of gives oilskin everyone carries war weddings a of weather lazy cities stalls gulls no no letters one and war why the sea the waits rings autumn and faces that brown with smells stamps that for until sailors while school indistinguishable crunching every and letter sometimes covers their the writing girls dusk the fox distant weddings to writing faces reef gulls back storms one while that ocean on church storms becomes dusts the war nobody closes morning from the stories professor lighthouse their on log the quick and water.\n\nSound winter to woolen packets woodsmoke measuring carrying from waits alike the while about boards slate bread oilskin at and until woodsmoke boards that every about beyond water above folded no bakery rings the closes the with at the that back cross from measuring about each woolen brown the and from gulls one their old along the before the to that the beyond at stalls the back news each sea pass pass storms lamp and in harbor stories morning young sentence and weddings lamp fox wooden the with arriving stairs weddings the brass wooden brass the school at the the one the lighthouse somehow in pass the in one brothers that with their stories war village bakery the woodsmoke cross sea flour sea climbs storms spectacles autumn sailors the one gives school kings smells closes arriving caps cross the wooden climbs and in boots becomes nobody the keeper arriving wings smells everyone while boots oilskin climbs a to village the it his their ships no keeper each and fishermen on instruments for fog old matters on harbor bakery beyond the carries carries young to rings arrives jumps faces with weddings their that bell the slate the closes until of to that morning knows walk every and practices below market carrying while market the in the postman the keeper bakery carrying stories trim on arrives them church bread crunching bearing with the where the matters carrying difficult and hulls the back brothers the indistinguishable where the spiral and everyone no old while sailors and market brothers the room spectacles every war the one on girls folded each measuring stamped spiral bicycle.\n\nMeasuring their crunching quick nobody room one the slate keeper in brothers cities salt fog climbs weddings walk water until covers boots one and spiral at water sailors funerals woodsmoke with ships frozen news from pass lights salt each the and salt brothers fox cities about rings weather weather letters dusk beyond dusts bearing below to faces to climbs nobody winter dogs sea everyone old the where to at covers letters measuring market reef smells and and begins with and the the at one and young the gravel in sailors reef an letter his trim sentence slate the letters difficult kings no stalls lamp brown caps the the from while to the and lighthouse stamped alike instruments stairs keeper arriving postman letter morning pass ships the flour crunching the and the weather the old weddings carries somehow crunching and faces cats moths sea ships professor stories practices with the the their above in arrives closes spiral at for brass letter bearing weddings autumn in matters his slate about bearing one the the at while stalls stairs and packets that in with and carrying the stalls the the catalogues fog and with the at and faces one practices smells salt ships its sometimes the of for the flour the stories everyone measuring with waits before professor while begins the that oilskin news to below the brass one weather gravel measuring and one takes weather boards quick carrying rings cats jumps where difficult why the.\n\nCats carrying sometimes lighthouse on it the letters on everyone practices one an while to on to walk and letters sea from measuring water the salt covers reef while professor sailors inside one and and walk on keeper bicycle stairs village arrives sentence the everyone boards weddings caps funerals weather reclaim log matters spiral everyone carries brown the trim distant and back gulls difficult bakery and with on instruments in indistinguishable with faces and wings inside autumn faces and wings war girls and old crunching sea children school bicycle boards measuring the catalogues flour inside sound difficult instruments at the weddings for with his jumps storms the while covers from inside gives and faces and keeper each reclaim the sometimes while boots church morning quick walk the log its the alike tell everyone trim the its a the professor and salt to letter it lazy the becomes from above letters the instruments in oilskin for the bicycle dusts the their spiral the the for that stories before the postman morning that the the at spiral boards stamps sound to while and about its carrying packets begins bicycle his and walk and why ships an their the news cities while in bicycle everyone caps packets before knows children where pass old them and one from in the somehow woolen tell keeper the of water knows measuring the writing with the faces girls along everyone bicycle in waits across difficult path writing catalogues harbor in them letter fox sailors the that spectacles at boards on cats bicycle winter and and becomes brothers faces cats instruments matters the the the ocean where boards stairs room the hulls moths bearing his covers begins news everyone nobody weather bearing one the for everyone weddings the gravel arrives and ocean the the with sound the with path autumn the gravel while.\n\nThe and and the dusk wings of the fishermen news the dusk each along the practices instruments the one every keeper the with writing of salt and harbor frozen while bearing one above oilskin path every room cross cross packets the along ocean and letter cats cats that alike walk reclaim the village and brothers bicycle instruments at at write bicycle over letters the young harbor one boots reef the sometimes catalogues and morning gives along and at gives stalls from and the while sailors water that one where church village school catalogues the crunching across at below reef from before one beyond frozen one difficult the water ocean dogs village somehow trim dogs difficult funerals children sea folded sea catalogues along hulls to closes where for and and its from village wings storms at folded the crunching bakery and young a the the autumn fishermen back while the an back log the cobblestones log where news stairs frozen kings the girls with the jumps the somehow ships weather cross bearing ships letter winter that the of letters one school the the over stamps wooden the wooden jumps sea on pass war fox the a wooden the catalogues water winter from on professor spiral gulls catalogues woolen on boards distant tell stamps trim dusts on the.\n\nAt ocean back letter distant the cities climbs with somehow knows bell letters gravel before caps why one lights writing cities across gulls and alike and beyond on and bakery over the the the sentence the and begins stamped hulls packets spiral difficult nobody and autumn morning fox where the each closes the oilskin dogs brown sentence matters the to no somehow tell pass dusk the young their gravel old the no bell every in pass quick and pass on oilskin distant in stalls lights that the back dusk closes moths flour cross the kings and at hulls wooden about knows to for above brass ocean salt in above knows his knows reclaim the covers weddings the oilskin sea letters salt arriving below quick everyone gulls the bearing one village moths stamps stamps room old and brothers that at the old one stories for salt the begins brass tell from in the the winter sailors climbs one jumps the of distant kings the brothers and the the across spiral cobblestones and their cities alike the oilskin the young writing dogs from room one letters and the an the and weather arriving water girls cross about measuring it cobblestones to sometimes waits with quick the bearing beyond lazy.\n\nMatters funerals difficult one sometimes beyond harbor the above with beyond with takes where the to it sound on instruments brothers to each salt writing writing in to letters along slate and and school lighthouse for reclaim the on every the quick write girls tell fog while his every the the sound packets back from the the above beyond kings stamped faces before write over one at in each dogs with while autumn writing fishermen at storms lamp an school sea woodsmoke cross autumn and the carrying practices arrives dogs boots oilskin brothers spiral sea spiral the the why and old one faces faces faces boots along at bread fox the water over the smells it a sentence crunching the letter letter begins salt the before write the spiral distant old that writing woolen sea professor gravel with sea water harbor sometimes spiral the across about above measuring water and from the dusts begins catalogues to room the reef path of fox ocean in fishermen in covers the the the cobblestones flour stairs dusts bearing frozen faces everyone bread the woodsmoke dogs their dusts beyond a in an the a stamps stalls the the and the and his everyone slate girls sea each and water fox young bicycle girls the from where wooden for room alike dusts along every them the in woodsmoke slate waits from spectacles dusts trim sea each brothers sometimes the their the pass dogs and matters with village cities beyond at arrives with.";
+async function loadCorpus(){
+  const src=$("corpus-src").value;let text="";
+  try{
+    if(src==="file"){
+      const files=[...($("corpus-file").files||[])];
+      if(!files.length){log("请先选择 .txt 文件","bad");return;}
+      let total=0;const bufs=[];
+      for(const f of files){const t=await f.text();bufs.push(t);total+=t.length;
+        if(total>20*1024*1024){log("语料超过 20MB 上限，已截断","bad");break;}}
+      text=bufs.join("\n\n");
+    }
+    else if(src==="tiny"){text=TINY_CORPUS;}
+    else text=$("corpus-paste").value;
+  }catch(e){log("语料加载失败: "+e,"bad");return;}
+  if(!text||text.length<1000){log("语料过短(<1KB)，无法构造测试","bad");return;}
+  S.corpus=text.replace(/\s+/g," ");
+  $("corpus-info").textContent=`${(S.corpus.length/1024/1024).toFixed(2)} M chars ≈ ${Math.round(S.corpus.length/(S.cpc||3.8)/1024)}K tokens`;
+  log(`语料就绪: ${(S.corpus.length/1024).toFixed(0)}K chars`,"ok");
+}
+async function calibrate(){
+  if(!S.corpus)await loadCorpus();if(!S.corpus)return null;
+  const sample=S.corpus.slice(0,20000);
+  const r=await callApi([{role:"user",content:sample+"\n\nReply OK."}],16,null);
+  const pt=r.usage&&r.usage.prompt_tokens;
+  if(pt){S.cpc=sample.length/pt;$("cpc").textContent=S.cpc.toFixed(3)+`（${sample.length} chars → ${pt} tokens）`;
+    log(`校准: chars/token=${S.cpc.toFixed(3)}`,"ok");return S.cpc;}
+  S.cpc=3.8;$("cpc").textContent="3.800（估算——服务端未返回 usage）";
+  log("警告: 无 usage，token 数按 3.8 chars/token 估算","bad");return S.cpc;
+}
+
+/* ================= context builder & tasks ================= */
+function buildContext(chars,inserts){
+  const base=S.corpus.slice(0,Math.min(chars,S.corpus.length));
+  const marks=inserts.map(([depth,text])=>{
+    let pos=Math.floor(base.length*depth/100);
+    let cut=base.lastIndexOf(". ",Math.min(base.length-1,pos+2000));
+    if(cut<Math.max(0,pos-4000))cut=base.indexOf(". ",Math.max(0,pos-2000));
+    if(cut<0)cut=pos;
+    return[Math.min(cut+2,base.length),text];
+  }).sort((a,b)=>a[0]-b[0]);
+  let out="",prev=0;
+  for(const[pos,text]of marks){out+=base.slice(prev,pos)+`\n\n>>> ${text} <<<\n\n`;prev=pos;}
+  return out+base.slice(prev);
+}
+const QBOX=q=>`\n\n--- END OF DOCUMENT ---\nAnswer the following question using ONLY the document above. Be concise and give the exact answer.\nQuestion: ${q}\nAnswer:`;
+const PROJ=["ARGONAUT","HOLLOWAY","LANTERN","MERIDIAN","NIGHTJAR","OBSIDIAN","PYXIS","QUARRY"];
+const MEMO=(p,c)=>`The lighthouse keeper recorded in his log that the launch code for Project ${p} was ${c}.`;
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+const TASKS={
+  T1(tokens,depth){
+    const code=uuid8(),proj=PROJ[Math.floor(Math.random()*PROJ.length)];
+    return{ctx:buildContext(tokens*S.cpc,[[depth,MEMO(proj,code)]]),
+      q:`According to the lighthouse keeper's log, what was the launch code for Project ${proj}? Reply with only the 8-character code.`,
+      max:768,check:a=>a.toUpperCase().includes(code),expect:code};},
+  T2(tokens){
+    const ps=shuffle(PROJ).slice(0,5),codes=ps.map(()=>uuid8());
+    const ins=[[10,0],[30,1],[50,2],[70,3],[90,4]].map(([d,i])=>[d,MEMO(ps[i],codes[i])]);
+    return{ctx:buildContext(tokens*S.cpc,ins),
+      q:"List the launch code of every project mentioned in the document, one per line, in the format PROJECT: CODE",
+      max:1024,check:a=>{const u=a.toUpperCase();const g=codes.filter(c=>u.includes(c)).length;
+        return{ok:g===5,note:`found ${g}/5}`.replace("}","]")};},expect:codes.join(", ")};},
+  T3(tokens){
+    const ins=[[15,"The Mayor hid the golden key inside the old lighthouse."],
+      [45,"The old lighthouse was torn down and its contents moved to the Maritime Museum."],
+      [75,"The Maritime Museum later relocated its entire collection to the Rivergate Warehouse."]];
+    return{ctx:buildContext(tokens*S.cpc,ins),
+      q:"According to the document, where is the golden key NOW? Reply with the name of the current location only.",
+      max:768,check:a=>a.toLowerCase().includes("rivergate"),expect:"Rivergate Warehouse"};},
+  T4(tokens){
+    const marker="zephyr-"+hex4();
+    const depths=shuffle([...Array(91).keys()].map(i=>i+5)).slice(0,7);
+    return{ctx:buildContext(tokens*S.cpc,depths.map(d=>[d,`Editor's note: the passphrase token ${marker} appears here.`])),
+      q:`How many times does the exact token '${marker}' appear in the document? Reply with a single number.`,
+      max:768,check:a=>{const m=a.match(/\b(\d+)\b/g);const ok=!!m&&+m[m.length-1]===7;
+        return{ok,note:`answered ${m?m[m.length-1]:"?"} expected 7`};},expect:7};},
+  T5(tokens){
+    const ps=["ALBATROSS","BEACON","CINDER"],codes=ps.map(()=>uuid8());
+    return{ctx:buildContext(tokens*S.cpc,[[20,MEMO(ps[0],codes[0])],[50,MEMO(ps[1],codes[1])],[80,MEMO(ps[2],codes[2])]]),
+      q:"You are a security auditor. First list each Project mentioned in the document with its launch code. Then, continuing in the same response, write a detailed analytical essay of at least 350 words on how long documents should be audited for leaked secrets, covering detection methods, prioritisation, reporting and remediation. Do not stop early.",
+      max:+$("mt-long").value,check:a=>{const u=a.toUpperCase();const g=codes.filter(c=>u.includes(c)).length;
+        return{ok:g>=2,note:`codes ${g}/3 in essay`};},expect:codes.join(", ")};},
+};
+
+/* ================= runner ================= */
+async function runOne(task,length,depth){
+  const T=TASKS[task](length,depth??-1);
+  const maxTok=task==="T5"?T.max:(task==="T1"?+ $("mt-short").value:T.max);
+  status(`运行 ${task} @ ${fmtK(length)}t depth=${depth}% …`);
+  const msgs=[{role:"user",content:T.ctx+QBOX(T.q)}];
+  const r=await callApi(msgs,maxTok,streamDelta());
+  const ans=(r.content||r.reasoning||"");
+  let chk=T.check(ans);if(chk===true||chk===false)chk={ok:chk,note:""};
+  const res={task,target_tokens:length,depth:depth??-1,ok:!!chk.ok,note:chk.note||"",
+    expect:String(T.expect),answer:(r.content||"").slice(0,1200),error:r.error,
+    elapsed:+r.elapsed.toFixed(1),ttft:r.ttft?+(r.ttft/1000).toFixed(2):null,
+    prompt_tokens:r.usage?r.usage.prompt_tokens:null,
+    completion_tokens:r.usage?r.usage.completion_tokens:null,finish:r.finish,
+    metrics:analyzeText(r.content||"")};
+  S.results.push(res);render();
+  const deg=["loop","caveman","repetitive"].filter(k=>res.metrics[k]);
+  log(`${task} @${fmtK(length)}t d${depth}: ${res.ok?"PASS":"FAIL"} ${res.elapsed}s `+
+      `pt=${res.prompt_tokens??"?"} ${deg.length?"⚠"+deg.join("/")+"" :""} ${res.note}${r.error?" | "+r.error:""}`,
+      r.error?"bad":(res.ok?"ok":"bad"));
+  // auto-recalibrate if context undershot target
+  if(res.prompt_tokens&&res.prompt_tokens<0.985*length&&!S.stop){
+    S.cpc=S.cpc*(length/res.prompt_tokens)*1.01;
+    $("cpc").textContent=S.cpc.toFixed(3)+"（已在线修正）";
+    log(`${task}@${fmtK(length)} 实际 ${res.prompt_tokens}t < 目标，修正 cpc=${S.cpc.toFixed(2)} 重试一次`);
+    S.results.pop();return runOne(task,length,depth);
+  }
+  return res;
+}
+function streamDelta(){
+  if(!$("opt-stream").checked)return null;
+  let acc="";
+  return(kind,ch)=>{acc+=ch;const t=performance.now();
+    if(t-S.lastDelta>400){S.lastDelta=t;status(`${kind==="r"?"🧠思考":"✍️输出"} ${acc.length} chars …`);}};
+}
+async function runAll(){
+  if(S.running)return;
+  if(!S.corpus){await loadCorpus();if(!S.corpus)return;}
+  if(!S.cpc)await calibrate();
+  if(!S.cpc)return;
+  const lengths=$("lengths").value.split(",").map(x=>parseInt(x.trim())).filter(x=>x>0);
+  const depths=$("depths").value.split(",").map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+  for(const L of lengths)if(L*S.cpc>S.corpus.length){
+    log(`语料不够 ${fmtK(L)} tokens（上限约 ${fmtK(Math.floor(S.corpus.length/S.cpc))}t），将截断`,"bad");break;}
+  const jobs=[];
+  for(const L of lengths){
+    if($("t1").checked)for(const d of depths)jobs.push(["T1",L,d]);
+    if($("t2").checked)jobs.push(["T2",L,-1]);
+    if($("t3").checked)jobs.push(["T3",L,-1]);
+    if($("t4").checked)jobs.push(["T4",L,-1]);
+    if($("t5").checked)jobs.push(["T5",L,-1]);
+  }
+  if(!jobs.length)return log("未勾选任何测试项","bad");
+  S.running=true;S.stop=false;S.results=[];render();
+  $("btn-run").disabled=true;$("btn-stop").disabled=false;$("dot").innerHTML='<span id="running-dot"></span>';
+  log(`开始 ${jobs.length} 个用例（长度×${lengths.join("/")}）`,"ok");
+  for(const[task,L,d]of jobs){
+    if(S.stop){log("已停止","bad");break;}
+    try{await runOne(task,L,d);}catch(e){log(`${task}@${L} 异常: ${e}`,"bad");}
+  }
+  S.running=false;$("btn-run").disabled=false;$("btn-stop").disabled=true;$("dot").innerHTML="";
+  status("完成");render();log("全部完成，可导出 JSON","ok");
+}
+
+/* ================= rendering ================= */
+function fmtK(n){return n>=1024?(n/1024).toFixed(0)+"K":n;}
+function status(t){$("status").textContent=t;}
+function render(){
+  const R=S.results;
+  /* summary */
+  const byL={};R.forEach(r=>{(byL[r.target_tokens]=byL[r.target_tokens]||[]).push(r);});
+  let h="<table><tr><th>目标长度</th><th>实际pt</th><th>T1 召回</th><th>其他任务</th><th>退化标志</th><th>均速 tok/s</th></tr>";
+  for(const L of Object.keys(byL).sort((a,b)=>a-b)){
+    const ts=byL[L],t1=ts.filter(t=>t.task==="T1"),ot=ts.filter(t=>t.task!=="T1");
+    const deg=[...new Set(ts.flatMap(t=>["loop","caveman","repetitive"].filter(k=>t.metrics[k])))];
+    const tps=ts.filter(t=>t.completion_tokens&&t.elapsed).map(t=>Math.round(t.completion_tokens/t.elapsed));
+    h+=`<tr><td>${fmtK(+L)}</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()||"?"}</td>`+
+       `<td class="${t1.every(t=>t.ok)?"pass":(t1.some(t=>t.ok)?"warn":"fail")}">${t1.filter(t=>t.ok).length}/${t1.length||"-"}</td>`+
+       `<td class="${ot.every(t=>t.ok)?"pass":(ot.some(t=>t.ok)?"warn":"fail")}">${ot.filter(t=>t.ok).length}/${ot.length||"-"}</td>`+
+       `<td class="${deg.length?"fail":"pass"}">${deg.join(",")||"无"}</td>`+
+       `<td>${tps.length?Math.round(tps.reduce((a,b)=>a+b,0)/tps.length):"?"}</td></tr>`;}
+  h+="</table>";
+  if(R.length)$("summary").innerHTML=h;
+  /* degeneration */
+  const bad=R.filter(t=>t.metrics.loop||t.metrics.caveman||t.metrics.repetitive);
+  $("degen-panel").innerHTML=bad.length?
+    `<div style="margin-top:10px"><b style="color:var(--bad)">⚠ ${bad.length} 个响应出现退化标志：</b>`+
+    bad.map(t=>`<div class="metric">${t.task}@${fmtK(t.target_tokens)}: `+
+      (t.metrics.loop?'<span class="badge loop">LOOP ×'+t.metrics.max10gram_repeat+'</span>':"")+
+      (t.metrics.caveman?'<span class="badge caveman">CAVEMAN fw='+t.metrics.function_word_ratio+'</span>':"")+
+      (t.metrics.repetitive?'<span class="badge rep">REP d2='+t.metrics.distinct2+'</span>':"")+`</div>`).join("")+`</div>`:"";
+  /* heatmap */
+  const lengths=[...new Set(R.map(r=>r.target_tokens))].sort((a,b)=>a-b);
+  const ds=[...new Set(R.filter(r=>r.task==="T1").map(r=>r.depth))].sort((a,b)=>a-b);
+  if(lengths.length&&ds.length){
+    let m='<table class="hm"><tr><th>长度\\深度</th>'+ds.map(d=>`<th>${d}%</th>`).join("")+"</tr>";
+    for(const L of lengths){m+=`<tr><td>${fmtK(L)}t</td>`;
+      for(const d of ds){const t=R.find(r=>r.task==="T1"&&r.target_tokens===L&&r.depth===d);
+        m+=t?`<td class="${t.ok?"p":"f"}" title="${esc(t.answer.slice(0,80))}">${t.ok?"✓":"✗"}</td>`:'<td class="n">·</td>';}
+      m+="</tr>";}
+    $("heatmap").innerHTML=m+"</table>";}
+  /* detail table */
+  if(R.length){
+    let d='<table><tr><th>任务</th><th>长度</th><th>深</th><th>结果</th><th>pt</th><th>ttft</th><th>耗时</th><th>tok/s</th><th>指标</th><th>备注</th></tr>';
+    for(const t of R){
+      const tps=t.completion_tokens&&t.elapsed?Math.round(t.completion_tokens/t.elapsed):"?";
+      const bad=["loop","caveman","repetitive"].some(k=>t.metrics[k]);
+      d+=`<tr><td>${t.task}</td><td>${fmtK(t.target_tokens)}</td><td>${t.depth}%</td>`+
+         `<td class="${t.error?"fail":(t.ok?"pass":"fail")}">${t.error?"ERR":(t.ok?"PASS":"FAIL")}</td>`+
+         `<td>${t.prompt_tokens??""}</td><td>${t.ttft??""}</td><td>${t.elapsed}s</td><td>${tps}</td>`+
+         `<td class="${bad?"warn":""}">${t.metrics.words}w fw=${t.metrics.function_word_ratio??"-"} d2=${t.metrics.distinct2??"-"}</td>`+
+         `<td>${esc(t.note||t.error||"")}</td></tr>`+
+         `<tr><td colspan="10" style="color:var(--dim);font-size:11.5px">预期: ${esc(t.expect)} → 答: ${esc((t.answer||"").slice(0,200))}</td></tr>`;}
+    $("results").innerHTML=d+"</table>";}
+}
+$("btn-export").onclick=()=>{
+  const blob=new Blob([JSON.stringify({meta:{base:$("base").value,model:$("model").value,cpc:S.cpc,
+    at:new Date().toISOString()},tests:S.results},null,1)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="longctx_results.json";a.click();};
+$("btn-run").onclick=runAll;
+$("btn-stop").onclick=()=>{S.stop=true;log("停止请求已发出（等当前请求结束）…")};
+$("btn-load").onclick=loadCorpus;
+$("corpus-src").onchange=e=>{$("corpus-file-box").style.display=e.target.value==="file"?"":"none";
+  $("corpus-paste-box").style.display=e.target.value==="paste"?"":"none";};
+$("btn-models").onclick=async()=>{
+  try{
+    const r=await fetch($("base").value.replace(/\/$/,"")+"/models",{mode:"cors"});
+    const t=await r.text();
+    const ms=JSON.parse(t).data.map(m=>m.id);
+    $("model-list").innerHTML="<div style='margin-top:8px'>"+ms.map(m=>
+      `<button style="margin:2px;font-size:12px" onclick="$('model').value='${esc(m)}'">${esc(m)}</button>`).join("")+"</div>";
+    log("发现模型: "+ms.join(", "),"ok");
+  }catch(e){log("拉取 /models 失败: "+e+(e.message.includes("fetch")?"（多为 CORS 拦截或地址不可达）":""),"bad");}};
+</script>
+</body>
+</html>
