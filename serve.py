@@ -13,11 +13,20 @@ OpenAI-compatible endpoint (browser pages can't call those directly due to CORS)
 
 Usage: python3 serve.py [--port 8899] [--host 127.0.0.1]
 """
-import argparse, json, os, sys, threading
+import argparse, json, os, re, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import request as urlreq
 from urllib.parse import urlparse, parse_qs
 from urllib.error import HTTPError, URLError
+
+
+def strip_gutenberg(t):
+    """去掉 Gutenberg 样板头尾，避免 0% 深度的针落进版权头里被模型当元数据跳过"""
+    m = re.search(r"\*\*\*\s*START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^*]*\*\*\*", t, re.I)
+    if m: t = t[m.end():]
+    m = re.search(r"\*\*\*\s*END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^*]*\*\*\*", t, re.I)
+    if m: t = t[:m.start()]
+    return t
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -56,8 +65,8 @@ class H(BaseHTTPRequestHandler):
                 if os.path.isdir(d):
                     for fn in sorted(os.listdir(d)):
                         if fn.endswith(".txt"):
-                            merged.append(open(os.path.join(d, fn), encoding="utf-8",
-                                               errors="ignore").read())
+                            merged.append(strip_gutenberg(open(os.path.join(d, fn),
+                                               encoding="utf-8", errors="ignore").read()))
                 open(f, "w", encoding="utf-8").write("\n\n".join(merged))
             self._file(f, "text/plain; charset=utf-8")
         elif p == "/fetch":

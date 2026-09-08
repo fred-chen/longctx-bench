@@ -26,6 +26,14 @@ from urllib import request as urlreq
 from urllib.error import HTTPError, URLError
 
 # ---------------------------------------------------------------- corpus
+def strip_gutenberg(t):
+    """去掉 Gutenberg 样板头尾，避免 0% 深度的针落进版权头里被模型当元数据跳过"""
+    m = re.search(r"\*\*\*\s*START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^*]*\*\*\*", t, re.I)
+    if m: t = t[m.end():]
+    m = re.search(r"\*\*\*\s*END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^*]*\*\*\*", t, re.I)
+    if m: t = t[:m.start()]
+    return t
+
 def load_corpus(corpus_dir, maxlen_chars):
     import os, glob
     parts = []
