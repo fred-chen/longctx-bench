@@ -24,7 +24,7 @@ textarea{resize:vertical}
 .checks label{display:flex;align-items:center;gap:7px;color:var(--fg);margin:6px 0;font-size:13px;cursor:pointer}
 .checks input{width:auto}
 button{background:#21262d;color:var(--fg);border:1px solid var(--border);border-radius:6px;
-padding:8px 14px;font-size:13px;cursor:pointer}
+padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--acc)}
 button.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
 button.danger{color:var(--bad)}
@@ -71,7 +71,7 @@ a{color:var(--acc)}
     <input type="text" id="base" value="http://ai4090:8080/v1">
     <div class="row">
       <div><label>Model ID</label><input type="text" id="model" value="Qwen3.8-Flash-Next"></div>
-      <div style="flex:0"><label>&nbsp;</label><button id="btn-models" title="GET /models">拉取模型</button></div>
+      <div style="flex:0 0 auto;align-self:flex-end"><label>&nbsp;</label><button id="btn-models" title="GET /models">拉取模型</button></div>
     </div>
     <div id="model-list"></div>
     <label>API Key (可选)</label>
