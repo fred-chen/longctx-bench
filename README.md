@@ -1,5 +1,7 @@
 # longctx-bench · standalone
 
+**在线使用：https://fred-chen.github.io/longctx-bench/** （GitHub Pages，无需下载）
+
 **单文件**长上下文测试控制台：召回（NIAH 热图）/ 多路检索 / 多跳推理 / 计数聚合 / 行为退化（loop · caveman-speak）。
 整个项目只有一个 `standalone.html`——无后端、无语料文件，打开即用。
 
@@ -29,8 +31,11 @@
 | llama.cpp server | `--origins '*'` |
 | OpenAI 官方 API | 本身即支持 |
 
-页面在 CORS 失败时会给出上述提示。若端点在你控制之外无法加头，请退回用
-`serve.py` 代理的完整版（见仓库 git 历史 `HEAD~1` 之前，或重新 checkout）。
+页面在 CORS 失败时会给出上述提示。
+
+**GitHub Pages 版注意**：Pages 是 https 页面，浏览器会拦截它直连 http 明文端点
+（mixed-content）。测内网 http 端点请本地双击 `standalone.html`（file:// 无此限制）；
+公网 https 端点则在 Pages 上可直连。
 
 ## 测试项与判定
 
