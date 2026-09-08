@@ -85,8 +85,8 @@ python3 make_report.py results.json report.html
 ```bash
 # 1) 代码放 /opt/longctx（含 corpus/），语料也可跑 download_corpus.sh 现场下载
 rsync -az --exclude .git ./ root@HOST:/opt/longctx/
-# 2) basic auth（/proxy 是 SSRF 护栏，建议保留）
-printf "user:%s\n" "$(openssl passwd -apr1 'PASSWORD')" > /etc/nginx/.htpasswd_longctx
+# 2) (可选) basic auth 护栏：取消 longctx.conf 里两行 auth_* 注释，并运行：
+# printf "user:%s\n" "$(openssl passwd -apr1 'PASSWORD')" > /etc/nginx/.htpasswd_longctx
 # 3) systemd 服务（serve.py 只绑 127.0.0.1，由 nginx 反代对外）
 cp deploy/longctx.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now longctx
 # 4) nginx（需 SELinux 允许 httpd 反代）
@@ -94,4 +94,4 @@ cp deploy/longctx.conf /etc/nginx/default.d/longctx.conf
 setsebool -P httpd_can_network_connect 1; nginx -t && systemctl reload nginx
 ```
 
-访问 `http://HOST/longctx/`。不想用密码就删掉 longctx.conf 里两行 auth_*（自担 SSRF 风险）。
+访问 `http://HOST/longctx/`。仓库默认**无认证**；若服务器公网可达，建议按步骤 2 开启 basic auth 护栏。
