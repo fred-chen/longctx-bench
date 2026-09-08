@@ -77,12 +77,16 @@ a{color:var(--acc)}
     <input type="password" id="apikey" placeholder="sk-...">
     <div class="row" style="margin-top:8px">
       <div><label>max_tokens 短答</label><input type="number" id="mt-short" value="768"></div>
-      <div><label>max_tokens 长文</label><input type="number" id="mt-long" value="2600" title="T5 强制长文生成的输出上限">
+      <div><label>max_tokens 长文</label><input type="number" id="mt-long" value="2600" title="T5 强制长文生成的输出上限"></div>
     </div>
-    <div class="checks">
-      <label>思考模式 (enable_thinking)</label>
-      <select id="opt-thinkmode"><option value="off" selected>关闭（默认，测纯检索）</option><option value="on">开启（max_tokens 自动 ×2，防思考烧光预算）</option><option value="default">不干预（不发该参数，适用于不支持的模型）</option></select>
-      <span id="thinkmode-hint" class="metric" style="font-size:11.5px;color:var(--dim)"></span>
+    <label style="margin-top:10px">思考模式 (enable_thinking)</label>
+    <select id="opt-thinkmode">
+      <option value="off" selected>关闭（默认，测纯检索）</option>
+      <option value="on">开启（max_tokens 自动 ×2）</option>
+      <option value="default">不干预（不发该参数）</option>
+    </select>
+    <div id="thinkmode-hint" class="metric" style="font-size:11.5px;color:var(--dim);min-height:16px"></div>
+    <div class="checks" style="margin-top:6px">
       <label><input type="checkbox" id="opt-stream" checked> 流式 (测 TTFT / tok/s)</label>
     </div>
     <div class="metric">token 校准系数 chars/token: <b id="cpc">—（首次运行自动校准）</b></div>
@@ -144,7 +148,6 @@ a{color:var(--acc)}
     <h2>实时日志 <span id="dot"></span></h2>
     <div id="log"></div>
   </div>
-</div>
 </div>
 </main>
 
