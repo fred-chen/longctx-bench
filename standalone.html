@@ -134,6 +134,15 @@ a{color:var(--acc)}
       <button id="btn-export">导出 JSON</button>
     </div>
     <div id="status">待命</div>
+    <div id="prog-wrap" style="display:none;margin-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px">
+        <span id="prog-label" class="metric">—</span>
+        <span id="prog-eta" class="metric">—</span>
+      </div>
+      <div style="height:8px;background:#21262d;border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-top:4px">
+        <div id="prog-bar" style="height:100%;width:0%;background:#1f6feb;transition:width .5s"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -413,10 +422,19 @@ async function runAll(){
   S.running=true;S.stop=false;S.results=[];render();
   $("btn-run").disabled=true;$("btn-stop").disabled=false;$("dot").innerHTML='<span id="running-dot"></span>';
   log(`开始 ${jobs.length} 个用例（长度×${lengths.join("/")}）`,"ok");
+  S.prog={done:0,total:0,idx:0,count:jobs.length,hist:[]};
+  for(const[task,L]of jobs)S.prog.total+=L;
+  $("prog-wrap").style.display="";$("prog-bar").style.width="0%";
+  updateProgress("估算中…（第 1 个用例完成后出 ETA）");
   for(const[task,L,d]of jobs){
-    if(S.stop){log("已停止","bad");break;}
+    S.prog.idx++;
+    const t0=performance.now();
     try{await runOne(task,L,d);}catch(e){log(`${task}@${L} 异常: ${e}`,"bad");}
+    const took=(performance.now()-t0)/1000;
+    S.prog.done+=L;S.prog.hist.push([L,took]);
+    updateProgress();
   }
+  $("prog-wrap").style.display="none";
   S.running=false;$("btn-run").disabled=false;$("btn-stop").disabled=true;$("dot").innerHTML="";
   status("完成");render();log("全部完成，可导出 JSON","ok");
 }
@@ -424,6 +442,32 @@ async function runAll(){
 /* ================= rendering ================= */
 function fmtK(n){return n>=1024?(n/1024).toFixed(0)+"K":n;}
 function status(t){$("status").textContent=t;}
+/* 进度估算：长上下文 prefill 近似线性于 token 数。
+   用已完成用例的 (tokens, seconds) 做最小二乘拟合 seconds ≈ a + b·tokens，
+   外推剩余用例耗时；仅 1 个样本时退化为 b = t/tokens 的比例外推。 */
+function updateProgress(msg){
+  const P=S.prog;if(!P)return;
+  const pct=P.total?Math.min(100,P.done/P.total*100):0;
+  $("prog-bar").style.width=pct.toFixed(1)+"%";
+  $("prog-label").textContent=`${P.idx}/${P.count} 用例 · ${pct.toFixed(0)}%`;
+  if(msg){$("prog-eta").textContent=msg;return;}
+  if(!P.done){$("prog-eta").textContent="—";return;}
+  // 线性拟合（若全部样本同 token 数则退化为均值比例）
+  const n=P.hist.length;let sx=0,sy=0,sxx=0,sxy=0;
+  for(const[x,y]of P.hist){sx+=x;sy+=y;sxx+=x*x;sxy+=x*y;}
+  const denom=n*sxx-sx*sx;
+  let a,b;
+  if(Math.abs(denom)<1e-9){b=sy/n/(sx/n);a=0;}
+  else{b=(n*sxy-sx*sy)/denom;a=(sy-b*sx)/n;}
+  if(b<0){b=sy/sx;a=0;}
+  const etaS=Math.max(0,a+b*(P.total-P.done));
+  $("prog-eta").textContent=`剩余 ≈ ${fmtEta(etaS)}`;
+}
+function fmtEta(s){
+  if(s<90)return Math.round(s)+"s";
+  if(s<5400)return Math.round(s/60)+" min";
+  return (s/3600).toFixed(1)+" h";
+}
 function render(){
   const R=S.results;
   /* summary */
