@@ -132,6 +132,8 @@ a{color:var(--acc)}
       <button id="btn-stop" class="danger" disabled>■ 停止</button>
       <button id="btn-report">📊 查看报告</button>
       <button id="btn-export">导出 JSON</button>
+      <button id="btn-import">导入 JSON</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
     </div>
     <div id="status">待命</div>
     <div id="prog-wrap" style="display:none;margin-top:10px">
@@ -520,6 +522,26 @@ $("btn-export").onclick=()=>{
   const blob=new Blob([JSON.stringify({meta:{base:$("base").value,model:$("model").value,cpc:S.cpc,
     at:new Date().toISOString()},tests:S.results},null,1)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="longctx_results.json";a.click();};
+$("btn-import").onclick=()=>$("import-file").click();
+$("import-file").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    const tests=Array.isArray(d)?d:(d.tests||[]);
+    if(!tests.length)throw new Error("文件里没有 tests 数据");
+    S.results=tests;
+    if(d.meta){
+      if(d.meta.base)$("base").value=d.meta.base;
+      if(d.meta.model)$("model").value=d.meta.model;
+      if(d.meta.cpc){S.cpc=d.meta.cpc;$("cpc").textContent=d.meta.cpc.toFixed(3)+"（自导入文件）";}
+      else if(d.meta.chars_per_token){S.cpc=d.meta.chars_per_token;$("cpc").textContent=d.meta.chars_per_token.toFixed(3)+"（自导入文件）";}
+    }
+    render();
+    log(`已导入 ${tests.length} 条结果（${(d.meta&&d.meta.model)||"未知模型"}），可点「查看报告」`,'ok');
+    openReport();
+  }catch(err){log("导入失败: "+err.message,"bad");}
+  e.target.value="";
+};
 $("btn-run").onclick=runAll;
 $("btn-stop").onclick=()=>{S.stop=true;log("停止请求已发出（等当前请求结束）…")};
 $("opt-thinkmode").onchange=e=>{
@@ -668,7 +690,9 @@ function reportData(){
    corpus_chars:S.corpus?S.corpus.length:null},tests:S.results};
 }
 function openReport(){
- if(!S.results.length){log("没有结果可报告","bad");return;}
+ if(!S.results.length){renderReport($("report-content"),{meta:{},tests:[]});
+  $("report-content").insertAdjacentHTML("afterbegin",'<div class="panel"><b style="color:var(--warn)">暂无结果数据。</b>先运行测试，或点「导入 JSON」载入历史结果后重新打开报告。</div>');
+  $("report-overlay").style.display="block";document.body.style.overflow="hidden";return;}
  renderReport($("report-content"),reportData());
  $("report-overlay").style.display="block";document.body.style.overflow="hidden";
 }
