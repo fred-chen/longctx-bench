@@ -121,6 +121,7 @@ a{color:var(--acc)}
     <div class="btns">
       <button id="btn-run" class="primary">▶ 开始测试</button>
       <button id="btn-stop" class="danger" disabled>■ 停止</button>
+      <button id="btn-report">📊 查看报告</button>
       <button id="btn-export">导出 JSON</button>
     </div>
     <div id="status">待命</div>
@@ -477,6 +478,168 @@ $("btn-models").onclick=async()=>{
       `<button style="margin:2px;font-size:12px" onclick="$('model').value='${esc(m)}'">${esc(m)}</button>`).join("")+"</div>";
     log("发现模型: "+ms.join(", "),"ok");
   }catch(e){log("拉取 /models 失败: "+e+(e.message.includes("fetch")?"（多为 CORS 拦截或地址不可达）":""),"bad");}};
+</script>
+
+<!-- ============ 报告弹窗 ============ -->
+<style>
+.report-overlay{position:fixed;inset:0;background:rgba(1,4,9,.85);z-index:99;overflow:auto;padding:30px 16px}
+.report-box{max-width:1080px;margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.report-inner{padding:22px 24px 34px}
+.report-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px}
+.report-top h1{font-size:20px;margin:0}
+.rp-kpi{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0}
+.rp-kpi>div{min-width:120px}
+.rp-kpi .big{font-size:26px;font-weight:800}
+.rp-kpi .l{color:var(--dim);font-size:12px}
+.rp-h2{font-size:13px;color:var(--acc);margin:26px 0 10px;text-transform:uppercase;letter-spacing:.05em}
+.rp-meta{color:var(--dim);font-size:12.5px}
+.rp-hm .hm td{width:64px;height:32px;text-align:center;font-weight:700;font-size:12px}
+.rp-hm .hm .p{background:#12461c;color:#7ee787}.rp-hm .hm .f{background:#5a1e1e;color:#ffa198}.rp-hm .hm .n{color:#30363d}
+.rp-ans{background:#0a0e14;border:1px solid var(--border);border-radius:6px;padding:9px;font-size:12px;white-space:pre-wrap;max-height:260px;overflow:auto}
+.rp-detail td[colspan]{padding:2px 6px}
+.rp-detail details{margin:2px 0}
+.rp-detail summary{cursor:pointer;color:var(--dim);font-size:12px}
+.task-desc{background:#0f1a2b;border:1px solid #1f4a75;border-left:3px solid var(--acc);border-radius:8px;padding:10px 14px;margin:14px 0 10px;font-size:12.8px;line-height:1.7}
+.task-desc b{color:var(--acc)}
+.task-desc .td-title{font-weight:700;color:var(--fg);display:block;margin-bottom:2px}
+</style>
+<div id="report-overlay" class="report-overlay" style="display:none">
+ <div class="report-box">
+  <div class="report-top">
+   <h1>🧵 长上下文测试报告 <span id="r-model" class="rp-meta"></span></h1>
+   <div class="btns" style="margin:0">
+    <button onclick="downloadReportHTML()" title="导出自包含 report.html 文件，可直接发人">导出 HTML</button>
+    <button onclick="closeReport()" class="danger">关闭 ✕</button>
+   </div>
+  </div>
+  <div id="report-content" class="report-inner"></div>
+ </div>
+</div>
+<script>
+/* 各任务的目的与方法说明（显示在对应结果块之前） */
+const TASK_INFO={
+ T1:{title:"T1 · 单针 NIAH 网格 —— 基础召回",desc:"<span class='td-title'>方法与目的</span>把语料裁剪到目标长度，在指定深度（0/25/50/75/100%）插入一根随机码针（叙事体句子，每次随机码不同防背答案），要求模型只回 8 位码。答案在文档中确定存在，PASS/FAIL 干净利落。长度×深度网格用于分离两种失败：<b>同长度中间深度挂、两端过 = lost-in-the-middle</b>；<b>固定深度随长度恶化 = 有效上下文边界</b>（标称上下文 vs 真实可用长度）"},
+ T2:{title:"T2 · 五针全召回 —— 检索广度",desc:"<span class='td-title'>方法与目的</span>同一份文档插 5 根针（不同 Project 与随机码），分散在 10/30/50/70/90% 深度，要求全部列出且格式正确，5 根全中才算过。比 T1 多测<b>多目标注意力分配</b>：接近真实场景（如从合同里提取所有金额），模型必须记住要列 5 个且每个都不能错"},
+ T3:{title:"T3 · 三跳事实链 —— 跨位置推理",desc:"<span class='td-title'>方法与目的</span>三句事实分别插在 15%/45%/75% 三处，构成推理链（钥匙藏灯塔→灯塔拆了搬博物馆→博物馆整体搬仓库），问钥匙现在在哪。必须三句都读到并串联才能答对，只读两跳会答错。分离<b>检索与推理</b>：T1/T2 测找得到，T3 测找到了会不会用"},
+ T4:{title:"T4 · 计数聚合 —— 全局扫描",desc:"<span class='td-title'>方法与目的</span>一个随机短语用不同句式插入 7 次、散落在 5%~96% 随机位置，问出现次数。没有任何一句可以局部读完就回答，必须对<b>整个</b>上下文做全局扫描——直接检验注意力是否贯穿全文。LLM 普遍弱项（GPT 级也常数错），重点看随长度的衰减趋势"},
+ T5:{title:"T5 · 强制长文生成 —— 退化探针",desc:"<span class='td-title'>方法与目的</span>先列出文档中 3 个 Project 的码（检索），紧接着要求写 ≥350 词分析长文且不许提前停。长输入+长输出叠加是 KV cache 退化、注意力漂移的最易暴露工况；对输出计算退化指标：<b>10-gram 重复≥3 判 LOOP</b>（复读循环）、<b>虚词比&lt;0.30 且句长&lt;10 判 CAVEMAN</b>（电报体）、<b>distinct-2&lt;0.60 判 REPETITIVE</b>"}
+};
+function renderReport(rc,data){
+ rc.innerHTML="";
+ const meta=data.meta||{},tests=data.tests||[];
+ const deg=tests.filter(t=>t.metrics&&(t.metrics.loop||t.metrics.caveman||t.metrics.repetitive));
+ const errs=tests.filter(t=>t.error);
+ const fails=tests.filter(t=>!t.ok&&!t.error);
+ const maxpt=Math.max(0,...tests.map(t=>t.prompt_tokens||0));
+ $("r-model").textContent=`· ${esc(meta.model||"?")} @ ${esc(meta.base||"?")}`;
+ rc.innerHTML=`<div class="rp-meta">端点 ${esc(meta.base||"")} · 模型 <b>${esc(meta.model||"")}</b> · ${esc(meta.started||"")} · 校准 ${esc(meta.chars_per_token||"?")} chars/token · 语料 ${meta.corpus_chars?Math.round(meta.corpus_chars/1024)+"K chars":"-"} · 共 ${tests.length} 用例</div>
+ <div class="panel rp-kpi">
+  <div><div class="big ${fails.length+errs.length?"warn":"pass"}">${tests.length-errs.length-fails.length}/${tests.length}</div><div class="l">通过用例</div></div>
+  <div><div class="big">${K(maxpt)}</div><div class="l">实测最大 prompt tokens</div></div>
+  <div><div class="big ${deg.length?"fail":"pass"}">${deg.length}</div><div class="l">退化标志响应 (loop/caveman/rep)</div></div>
+  <div><div class="big ${errs.length?"fail":"pass"}">${errs.length}</div><div class="l">请求错误 (含超上下文)</div></div>
+ </div>`;
+ const byL={};tests.forEach(t=>{(byL[t.target_tokens]=byL[t.target_tokens]||[]).push(t);});
+ h=`<h2 class="rp-h2">总览（按上下文长度）</h2><div class="panel"><table><tr><th>目标长度</th><th>实际 max pt</th><th>T1 单针召回</th><th>T2-T5</th><th>退化</th><th>TTFT 中位</th></tr>`;
+ for(const L of Object.keys(byL).sort((a,b)=>a-b)){const ts=byL[L];
+  const t1=ts.filter(t=>t.task==="T1"),ot=ts.filter(t=>t.task!=="T1");
+  const dg=[...new Set(ts.flatMap(t=>["loop","caveman","repetitive"].filter(k=>t.metrics&&t.metrics[k])))];
+  const ttfts=t1.map(t=>t.ttft).filter(x=>x!=null).sort((a,b)=>a-b);
+  h+=`<tr><td>${K(+L)}t</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()}</td>
+  <td class="${t1.every(t=>t.ok)?"pass":(t1.some(t=>t.ok)?"warn":"fail")}">${t1.filter(t=>t.ok).length}/${t1.length}</td>
+  <td class="${ot.every(t=>t.ok)?"pass":(ot.some(t=>t.ok)?"warn":"fail")}">${ot.filter(t=>t.ok).length}/${ot.length}</td>
+  <td class="${dg.length?"fail":"pass"}">${dg.join(", ")||"无"}</td>
+  <td>${ttfts.length?ttfts[Math.floor(ttfts.length/2)]+"s":"-"}</td></tr>`;}
+ h+=`</table></div>`;
+ /* 各任务区块：说明在前，结果在后 */
+ const order=["T1","T2","T3","T4","T5"];
+ for(const tk of order){
+  const info=TASK_INFO[tk],ts=tests.filter(t=>t.task===tk);
+  if(!ts.length)continue;
+  h+=`<h2 class="rp-h2">${info.title}</h2>`;
+  h+=`<div class="task-desc">${info.desc}</div>`;
+  h+=`<div class="panel"><table><tr><th>长度</th><th>深度</th><th>结果</th><th>pt</th><th>ttft</th><th>耗时</th><th>tok/s</th><th>退化指标</th><th>备注</th></tr>`;
+  for(const t of ts){
+   const tps=t.completion_tokens&&t.elapsed?Math.round(t.completion_tokens/t.elapsed):"?";
+   const m=t.metrics||{};
+   const bad=["loop","caveman","repetitive"].some(k=>m[k]);
+   h+=`<tr><td>${K(t.target_tokens)}</td><td>${t.depth}%</td>
+   <td class="${t.error?"fail":(t.ok?"pass":"fail")}">${t.error?"ERR":(t.ok?"PASS":"FAIL")}</td>
+   <td>${t.prompt_tokens??"-"}</td><td>${t.ttft??"-"}</td><td>${t.elapsed}s</td><td>${tps}</td>
+   <td class="${bad?"warn":""}">${m.words??"-"}w fw=${m.function_word_ratio??"-"} d2=${m.distinct2??"-"}</td>
+   <td>${esc(t.note||"")}${t.error?" "+esc(String(t.error).slice(0,140)):""}</td></tr>
+   <tr class="rp-detail"><td colspan="9"><details><summary>预期 ${esc(String(t.expect||"")).slice(0,160)} → 模型回答</summary><pre class="rp-ans">${esc(t.answer||"(无正文，可能被思考截断)")}</pre></details></td></tr>`;}
+  h+=`</table></div>`;
+ }
+ /* T1 热图单独成节（网格视图） */
+ const t1s=tests.filter(t=>t.task==="T1");
+ if(t1s.length){
+  const lengths=[...new Set(t1s.map(t=>t.target_tokens))].sort((a,b)=>a-b);
+  const ds=[...new Set(t1s.map(t=>t.depth))].sort((a,b)=>a-b);
+  h+=`<h2 class="rp-h2">T1 召回热图（长度 × 深度 网格视图）</h2><div class="panel rp-hm"><table class="hm"><tr><th>长度\\深度</th>${ds.map(d=>`<th>${d}%</th>`).join("")}</tr>`;
+  for(const L of lengths){h+=`<tr><td>${K(L)}t</td>`;
+   for(const d of ds){const t=t1s.find(t=>t.target_tokens===L&&t.depth===d);
+    h+=t?`<td class="${t.ok?"p":"f"}" title="${esc((t.answer||t.error||"").slice(0,120))}">${t.ok?"✓":"✗"}</td>`:"<td class='n'>·</td>";}
+   h+="</tr>";}
+  h+=`</table><div class='rp-meta'>深度 = needle 在上下文中的相对位置（0% 开头，100% 结尾；中间最易漏检 = lost-in-the-middle）。悬停格子可看模型回答。</div></div>`;
+ }
+ /* 退化汇总表 */
+ const longts=tests.filter(t=>t.metrics&&t.metrics.words>40);
+ if(longts.length){
+  h+=`<h2 class="rp-h2">行为退化指标汇总（≥40 词的响应）</h2><div class="panel">`;
+  h+=deg.length?`<b style="color:var(--bad)">⚠ ${deg.length} 个响应触发标志</b>`:`<b style="color:var(--ok)">✓ 无响应触发 loop / caveman / repetitive</b>`;
+  h+=`<table><tr><th>用例</th><th>词数</th><th>function-word 比<br><span style="font-weight:400">(&lt;0.30 且句长&lt;10 → caveman)</span></th><th>distinct-2<br><span style="font-weight:400">(&lt;0.60 且&gt;150词 → rep)</span></th><th>10-gram 最大重复<br><span style="font-weight:400">(≥3 → loop)</span></th><th>平均句长</th></tr>`;
+  for(const t of longts){const m=t.metrics;
+   h+=`<tr><td>${t.task}@${K(t.target_tokens)} d${t.depth}</td><td>${m.words}</td>
+   <td class="${m.caveman?"fail":""}">${m.function_word_ratio??"-"}</td>
+   <td class="${m.repetitive?"fail":""}">${m.distinct2??"-"}</td>
+   <td class="${m.loop?"fail":""}">${m.max10gram_repeat}</td><td>${m.avg_words_per_sentence??"-"}</td></tr>`;}
+  h+=`</table></div>`;
+ }
+ rc.innerHTML+=h;
+}
+function reportData(){
+ return{meta:{base:$("base").value.trim(),model:$("model").value.trim(),
+   chars_per_token:S.cpc,started:new Date().toISOString(),
+   corpus_chars:S.corpus?S.corpus.length:null},tests:S.results};
+}
+function openReport(){
+ if(!S.results.length){log("没有结果可报告","bad");return;}
+ renderReport($("report-content"),reportData());
+ $("report-overlay").style.display="block";document.body.style.overflow="hidden";
+}
+function closeReport(){$("report-overlay").style.display="none";document.body.style.overflow="";}
+function downloadReportHTML(){
+ const d=reportData();
+ const inner=document.getElementById("report-content").innerHTML;
+ const css=[":root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--fg:#c9d1d9;--dim:#8b949e;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--acc:#58a6ff}",
+ "body{background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,'Segoe UI',Roboto,'PingFang SC',sans-serif}",
+ "main{max-width:1080px;margin:0 auto;padding:24px}h1{font-size:20px}",
+ ".rp-kpi{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0}.rp-kpi>div{min-width:120px}",
+ ".rp-kpi .big{font-size:26px;font-weight:800}.rp-kpi .l{color:var(--dim);font-size:12px}",
+ ".rp-h2{font-size:13px;color:var(--acc);margin:26px 0 10px;text-transform:uppercase;letter-spacing:.05em}",
+ ".rp-meta{color:var(--dim);font-size:12.5px}",
+ ".panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin:12px 0}",
+ "table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid var(--border);padding:6px 9px;text-align:left}",
+ "th{background:#1c2129;color:var(--dim)}.pass{color:var(--ok);font-weight:700}.fail{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}",
+ ".hm td{width:64px;height:32px;text-align:center;font-weight:700;font-size:12px}",
+ ".hm .p{background:#12461c;color:#7ee787}.hm .f{background:#5a1e1e;color:#ffa198}.hm .n{color:#30363d}",
+ ".rp-ans{background:#0a0e14;border:1px solid var(--border);border-radius:6px;padding:9px;font-size:12px;white-space:pre-wrap;max-height:260px;overflow:auto}",
+ ".rp-detail details{margin:2px 0}.rp-detail summary{cursor:pointer;color:var(--dim);font-size:12px}",
+ ".task-desc{background:#0f1a2b;border:1px solid #1f4a75;border-left:3px solid var(--acc);border-radius:8px;padding:10px 14px;margin:14px 0 10px;font-size:12.8px;line-height:1.7}",
+ ".task-desc b{color:var(--acc)}.task-desc .td-title{font-weight:700;color:var(--fg);display:block;margin-bottom:2px}"].join("\n");
+ const html="<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'>"
+  +"<title>长上下文测试报告 · "+esc(d.meta.model||"")+"</title><style>"+css+"</style></head>"
+  +"<body><main><h1>🧵 长上下文测试报告</h1><div class='rp-meta'>端点 "+esc(d.meta.base)+" · 模型 <b>"+esc(d.meta.model)+"</b> · "+esc(d.meta.started)+" · 共 "+d.tests.length+" 用例</div>"
+  +inner+"</main></body></html>";
+ const blob=new Blob([html],{type:"text/html;charset=utf-8"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download="longctx_report_"+(d.meta.model||"unknown").replace(/[^A-Za-z0-9._-]/g,"")+".html";a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+$("btn-report").onclick=openReport;
+$("report-overlay").addEventListener("click",e=>{if(e.target===$("report-overlay"))closeReport();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeReport();});
 </script>
 </body>
 </html>
