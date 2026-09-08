@@ -621,7 +621,7 @@ function renderReport(rc,data){
  rc.innerHTML=`<div class="rp-meta">端点 ${esc(meta.base||"")} · 模型 <b>${esc(meta.model||"")}</b> · ${esc(meta.started||"")} · 校准 ${esc(meta.chars_per_token||"?")} chars/token · 语料 ${meta.corpus_chars?Math.round(meta.corpus_chars/1024)+"K chars":"-"} · 共 ${tests.length} 用例</div>
  <div class="panel rp-kpi">
   <div><div class="big ${fails.length+errs.length?"warn":"pass"}">${tests.length-errs.length-fails.length}/${tests.length}</div><div class="l">通过用例</div></div>
-  <div><div class="big">${K(maxpt)}</div><div class="l">实测最大 prompt tokens</div></div>
+  <div><div class="big">${fmtK(maxpt)}</div><div class="l">实测最大 prompt tokens</div></div>
   <div><div class="big ${deg.length?"fail":"pass"}">${deg.length}</div><div class="l">退化标志响应 (loop/caveman/rep)</div></div>
   <div><div class="big ${errs.length?"fail":"pass"}">${errs.length}</div><div class="l">请求错误 (含超上下文)</div></div>
  </div>`;
@@ -631,7 +631,7 @@ function renderReport(rc,data){
   const t1=ts.filter(t=>t.task==="T1"),ot=ts.filter(t=>t.task!=="T1");
   const dg=[...new Set(ts.flatMap(t=>["loop","caveman","repetitive"].filter(k=>t.metrics&&t.metrics[k])))];
   const ttfts=t1.map(t=>t.ttft).filter(x=>x!=null).sort((a,b)=>a-b);
-  h+=`<tr><td>${K(+L)}t</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()}</td>
+  h+=`<tr><td>${fmtK(+L)}t</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()}</td>
   <td class="${t1.every(t=>t.ok)?"pass":(t1.some(t=>t.ok)?"warn":"fail")}">${t1.filter(t=>t.ok).length}/${t1.length}</td>
   <td class="${ot.every(t=>t.ok)?"pass":(ot.some(t=>t.ok)?"warn":"fail")}">${ot.filter(t=>t.ok).length}/${ot.length}</td>
   <td class="${dg.length?"fail":"pass"}">${dg.join(", ")||"无"}</td>
@@ -649,7 +649,7 @@ function renderReport(rc,data){
    const tps=t.completion_tokens&&t.elapsed?Math.round(t.completion_tokens/t.elapsed):"?";
    const m=t.metrics||{};
    const bad=["loop","caveman","repetitive"].some(k=>m[k]);
-   h+=`<tr><td>${K(t.target_tokens)}</td><td>${t.depth}%</td>
+   h+=`<tr><td>${fmtK(t.target_tokens)}</td><td>${t.depth}%</td>
    <td class="${t.error?"fail":(t.ok?"pass":"fail")}">${t.error?"ERR":(t.ok?"PASS":"FAIL")}</td>
    <td>${t.prompt_tokens??"-"}</td><td>${t.ttft??"-"}</td><td>${t.elapsed}s</td><td>${tps}</td>
    <td class="${bad?"warn":""}">${m.words??"-"}w fw=${m.function_word_ratio??"-"} d2=${m.distinct2??"-"}</td>
@@ -663,7 +663,7 @@ function renderReport(rc,data){
   const lengths=[...new Set(t1s.map(t=>t.target_tokens))].sort((a,b)=>a-b);
   const ds=[...new Set(t1s.map(t=>t.depth))].sort((a,b)=>a-b);
   h+=`<h2 class="rp-h2">T1 召回热图（长度 × 深度 网格视图）</h2><div class="panel rp-hm"><table class="hm"><tr><th>长度\\深度</th>${ds.map(d=>`<th>${d}%</th>`).join("")}</tr>`;
-  for(const L of lengths){h+=`<tr><td>${K(L)}t</td>`;
+  for(const L of lengths){h+=`<tr><td>${fmtK(L)}t</td>`;
    for(const d of ds){const t=t1s.find(t=>t.target_tokens===L&&t.depth===d);
     h+=t?`<td class="${t.ok?"p":"f"}" title="${esc((t.answer||t.error||"").slice(0,120))}">${t.ok?"✓":"✗"}</td>`:"<td class='n'>·</td>";}
    h+="</tr>";}
@@ -676,7 +676,7 @@ function renderReport(rc,data){
   h+=deg.length?`<b style="color:var(--bad)">⚠ ${deg.length} 个响应触发标志</b>`:`<b style="color:var(--ok)">✓ 无响应触发 loop / caveman / repetitive</b>`;
   h+=`<table><tr><th>用例</th><th>词数</th><th>function-word 比<br><span style="font-weight:400">(&lt;0.30 且句长&lt;10 → caveman)</span></th><th>distinct-2<br><span style="font-weight:400">(&lt;0.60 且&gt;150词 → rep)</span></th><th>10-gram 最大重复<br><span style="font-weight:400">(≥3 → loop)</span></th><th>平均句长</th></tr>`;
   for(const t of longts){const m=t.metrics;
-   h+=`<tr><td>${t.task}@${K(t.target_tokens)} d${t.depth}</td><td>${m.words}</td>
+   h+=`<tr><td>${t.task}@${fmtK(t.target_tokens)} d${t.depth}</td><td>${m.words}</td>
    <td class="${m.caveman?"fail":""}">${m.function_word_ratio??"-"}</td>
    <td class="${m.repetitive?"fail":""}">${m.distinct2??"-"}</td>
    <td class="${m.loop?"fail":""}">${m.max10gram_repeat}</td><td>${m.avg_words_per_sentence??"-"}</td></tr>`;}
