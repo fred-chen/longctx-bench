@@ -77,11 +77,12 @@ a{color:var(--acc)}
     <input type="password" id="apikey" placeholder="sk-...">
     <div class="row" style="margin-top:8px">
       <div><label>max_tokens 短答</label><input type="number" id="mt-short" value="768"></div>
-      <div><label>max_tokens 长文</label><input type="number" id="mt-long" value="2600"></div>
+      <div><label>max_tokens 长文</label><input type="number" id="mt-long" value="2600" title="T5 强制长文生成的输出上限">
     </div>
     <div class="checks">
       <label>思考模式 (enable_thinking)</label>
-      <select id="opt-thinkmode"><option value="off" selected>关闭（默认，避免思考吃光 max_tokens）</option><option value="on">开启</option><option value="default">不干预（不发该参数，适用于不支持的模型）</option></select>
+      <select id="opt-thinkmode"><option value="off" selected>关闭（默认，测纯检索）</option><option value="on">开启（max_tokens 自动 ×2，防思考烧光预算）</option><option value="default">不干预（不发该参数，适用于不支持的模型）</option></select>
+      <span id="thinkmode-hint" class="metric" style="font-size:11.5px;color:var(--dim)"></span>
       <label><input type="checkbox" id="opt-stream" checked> 流式 (测 TTFT / tok/s)</label>
     </div>
     <div class="metric">token 校准系数 chars/token: <b id="cpc">—（首次运行自动校准）</b></div>
@@ -348,8 +349,11 @@ const TASKS={
 /* ================= runner ================= */
 async function runOne(task,length,depth){
   const T=TASKS[task](length,depth??-1);
-  const maxTok=task==="T5"?T.max:(task==="T1"?+ $("mt-short").value:T.max);
-  status(`运行 ${task} @ ${fmtK(length)}t depth=${depth}% …`);
+  const tm=$("opt-thinkmode").value;
+  let maxTok=task==="T5"?T.max:(task==="T1"?+( $("mt-short").value):T.max);
+  if(tm==="on"){maxTok*=2;}
+  else if(tm==="default"){maxTok=Math.max(maxTok,task==="T5"?2500:1024);}
+  status(`运行 ${task} @ ${fmtK(length)}t depth=${depth}% · max_tokens=${maxTok}${tm==='on'?' (思考×2)':''} …`);
   const msgs=[{role:"user",content:T.ctx+QBOX(T.q)}];
   const r=await callApi(msgs,maxTok,streamDelta());
   const ans=(r.content||r.reasoning||"");
@@ -466,6 +470,10 @@ $("btn-export").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="longctx_results.json";a.click();};
 $("btn-run").onclick=runAll;
 $("btn-stop").onclick=()=>{S.stop=true;log("停止请求已发出（等当前请求结束）…")};
+$("opt-thinkmode").onchange=e=>{
+  const v=e.target.value;
+  $("thinkmode-hint").textContent=v==="on"?"已开启：max_tokens 自动 ×2（短答→1536，长文→5200）":v==="default"?"不干预：max_tokens 取 max(任务默认, 1024/2500)":"";
+};
 $("btn-load").onclick=loadCorpus;
 $("corpus-src").onchange=e=>{$("corpus-file-box").style.display=e.target.value==="file"?"":"none";
   $("corpus-paste-box").style.display=e.target.value==="paste"?"":"none";};
