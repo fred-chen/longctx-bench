@@ -654,7 +654,7 @@ function renderReport(rc,data){
    <td>${t.prompt_tokens??"-"}</td><td>${t.ttft??"-"}</td><td>${t.elapsed}s</td><td>${tps}</td>
    <td class="${bad?"warn":""}">${m.words??"-"}w fw=${m.function_word_ratio??"-"} d2=${m.distinct2??"-"}</td>
    <td>${esc(t.note||"")}${t.error?" "+esc(String(t.error).slice(0,140)):""}</td></tr>
-   <tr class="rp-detail"><td colspan="9"><details><summary>预期 ${esc(String(t.expect||"")).slice(0,160)} → 模型回答</summary><pre class="rp-ans">${esc(t.answer||"(无正文，可能被思考截断)")}</pre></details></td></tr>`;}
+   <tr class="rp-detail"><td colspan="9"><details><summary>预期 ${esc(String(t.expect||"")).slice(0,160)} → 模型回答：${esc((t.answer||"").replace(/\s+/g," ").slice(0,90))||"(空)"}</summary><pre class="rp-ans">${esc(t.answer||"(无正文，可能被思考截断)")}</pre></details></td></tr>`;}
   h+=`</table></div>`;
  }
  /* T1 热图单独成节（网格视图） */
