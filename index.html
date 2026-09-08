@@ -154,8 +154,12 @@ const S={corpus:null,cpc:null,queue:[],running:false,stop:false,results:[],lastD
 const now=()=>new Date().toLocaleTimeString();
 function log(msg,cls){const d=$("log");d.innerHTML+=`<span class="dim">[${now()}]</span> <span class="${cls||''}">${esc(msg)}</span>\n`;d.scrollTop=d.scrollHeight;}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function uuid8(){return (crypto.randomUUID().replace(/-/g,"").slice(0,8)).toUpperCase();}
-function hex4(){return crypto.randomUUID().replace(/-/g,"").slice(0,4);}
+function rndHex(n){let s="";
+  if(self.crypto&&crypto.getRandomValues){const a=new Uint8Array(Math.ceil(n/2));crypto.getRandomValues(a);s=[...a].map(b=>b.toString(16).padStart(2,"0")).join("");}
+  while(s.length<n)s+=Math.random().toString(16).slice(2);
+  return s.slice(0,n);} // crypto.randomUUID 在 http 明文页不可用，改用 getRandomValues 兼容
+function uuid8(){return rndHex(8).toUpperCase();}
+function hex4(){return rndHex(4);}
 
 /* ================= degeneration metrics (mirror bench.py) ================= */
 const FUNC=new Set(("a an the and or but if then than that this these those of in on at to for from by with "+
