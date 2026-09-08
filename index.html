@@ -279,14 +279,14 @@ function buildContext(chars,inserts){
 }
 const QBOX=q=>`\n\n--- END OF DOCUMENT ---\nAnswer the following question using ONLY the document above. Be concise and give the exact answer.\nQuestion: ${q}\nAnswer:`;
 const PROJ=["ARGONAUT","HOLLOWAY","LANTERN","MERIDIAN","NIGHTJAR","OBSIDIAN","PYXIS","QUARRY"];
-const MEMO=(p,c)=>`A confidential memo states that the launch code for Project ${p} is ${c}.`;
+const MEMO=(p,c)=>`The lighthouse keeper recorded in his log that the launch code for Project ${p} was ${c}.`;
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 const TASKS={
   T1(tokens,depth){
     const code=uuid8(),proj=PROJ[Math.floor(Math.random()*PROJ.length)];
     return{ctx:buildContext(tokens*S.cpc,[[depth,MEMO(proj,code)]]),
-      q:`What is the launch code for Project ${proj}? Reply with only the 8-character code.`,
+      q:`According to the lighthouse keeper's log, what was the launch code for Project ${proj}? Reply with only the 8-character code.`,
       max:768,check:a=>a.toUpperCase().includes(code),expect:code};},
   T2(tokens){
     const ps=shuffle(PROJ).slice(0,5),codes=ps.map(()=>uuid8());

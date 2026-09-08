@@ -195,10 +195,11 @@ QBOX = ("\n\n--- END OF DOCUMENT ---\n"
 def task_niah(corpus, tokens, cpc, depth, rng):
     code = uuid.uuid4().hex[:8].upper()
     proj = rng.choice(["ARGONAUT", "HOLLOWAY", "LANTERN", "MERIDIAN", "NIGHTJAR", "OBSIDIAN"])
-    needle = f"A confidential memo states that the launch code for Project {proj} is {code}."
+    needle = (f"The lighthouse keeper recorded in his log that the launch code "
+              f"for Project {proj} was {code}.")
     ctx = build_context(corpus, int(tokens * cpc), [(depth, needle)])
-    q = (f"What is the launch code for Project {proj}? "
-         f"Reply with only the 8-character code.")
+    q = (f"According to the lighthouse keeper's log, what was the launch code "
+         f"for Project {proj}? Reply with only the 8-character code.")
     return ctx, q, {"expect": code, "check": lambda a: code in a.upper()}
 
 def task_multi(corpus, tokens, cpc, rng, n=5):
@@ -206,7 +207,8 @@ def task_multi(corpus, tokens, cpc, rng, n=5):
     projs = rng.sample(["ARGONAUT", "HOLLOWAY", "LANTERN", "MERIDIAN", "NIGHTJAR",
                         "OBSIDIAN", "PYXIS", "QUARRY"], n)
     codes = [uuid.uuid4().hex[:8].upper() for _ in range(n)]
-    inserts = [(d, f"A confidential memo states that the launch code for Project {p} is {c}.")
+    inserts = [(d, f"The lighthouse keeper recorded in his log that the launch code "
+               f"for Project {p} was {c}.")
                for d, p, c in zip(rng_, projs, codes)]
     ctx = build_context(corpus, int(tokens * cpc), inserts)
     q = ("List the launch code of every project mentioned in the document, one per line, "
@@ -246,7 +248,8 @@ def task_report(corpus, tokens, cpc, rng):
     """Force a long generation to amplify degeneration (loops / caveman speech)."""
     codes = [uuid.uuid4().hex[:8].upper() for _ in range(3)]
     projs = ["ALBATROSS", "BEACON", "CINDER"]
-    inserts = [(d, f"A confidential memo states that the launch code for Project {p} is {c}.")
+    inserts = [(d, f"The lighthouse keeper recorded in his log that the launch code "
+               f"for Project {p} was {c}.")
                for d, p, c in zip([20, 50, 80], projs, codes)]
     ctx = build_context(corpus, int(tokens * cpc), inserts)
     q = ("You are a security auditor. First list each Project mentioned in the document "
