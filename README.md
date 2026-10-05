@@ -2,6 +2,13 @@
 
 **在线使用：https://fred-chen.github.io/longctx-bench/** （GitHub Pages，无需下载）
 
+## 发布位置（固定约定，见 DEPLOY.md）
+
+| 目标 | 地址 |
+|---|---|
+| GitHub Pages | https://fred-chen.github.io/longctx-bench/standalone.html |
+| NAS nginx | http://nas.chenp.net/longctx.html （目标文件 `/usr/share/nginx/html/longctx.html`） |
+
 **单文件**长上下文测试控制台：召回（NIAH 热图）/ 多路检索 / 多跳推理 / 计数聚合 / 行为退化（loop · caveman-speak）。
 整个项目只有一个 `standalone.html`——无后端、无语料文件，打开即用。
 
