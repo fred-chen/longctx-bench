@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>LongCtx Console · 长上下文召回/检索/行为退化测试台</title>
+<title><span data-i18n="L00">LongCtx Console · 长上下文召回/检索/行为退化测试台</span></title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--fg:#c9d1d9;--dim:#8b949e;
@@ -58,85 +58,86 @@ a{color:var(--acc)}
 </head>
 <body>
 <header>
-  <h1>🧵 LongCtx Console · Standalone</h1>
-  <span class="sub">长上下文 召回/检索/多跳/计数/退化测试 · 单文件版，直连推理端点（需 CORS）</span>
+<div id="lang-switch" style="position:fixed;top:10px;right:16px;z-index:100;display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px">
+<button id="lang-zh" class="on" style="border:none;background:transparent;color:var(--dim);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12.5px">中文</button><button id="lang-en" style="border:none;background:transparent;color:var(--dim);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12.5px">EN</button></div>  <h1>🧵 LongCtx Console · Standalone</h1>
+  <span class="sub"><span data-i18n="L01">长上下文 召回/检索/多跳/计数/退化测试 · 单文件版，直连推理端点（需 CORS）</span></span>
 </header>
 <main>
 <!-- ============================== LEFT: config ============================== -->
 <div>
   <div class="panel">
     <h2>1. Endpoint</h2>
-    <label>Base URL (OpenAI 兼容，含 /v1)</label>
+    <label><span data-i18n="L02">Base URL (OpenAI 兼容，含 /v1)</span></label>
     <input type="text" id="base" value="http://ai4090:8080/v1">
     <div class="row">
       <div><label>Model ID</label><input type="text" id="model" value="Qwen3.8-Flash-Next"></div>
-      <div style="flex:0 0 auto;align-self:flex-end"><label>&nbsp;</label><button id="btn-models" title="GET /models">拉取模型</button></div>
+      <div style="flex:0 0 auto;align-self:flex-end"><label>&nbsp;</label><button id="btn-models" title="GET /models"><span data-i18n="L03">拉取模型</span></button></div>
     </div>
     <div id="model-list"></div>
-    <label>API Key (可选)</label>
+    <label><span data-i18n="L04">API Key (可选)</span></label>
     <input type="password" id="apikey" placeholder="sk-...">
     <div class="row" style="margin-top:8px">
-      <div><label>max_tokens 短答</label><input type="number" id="mt-short" value="768"></div>
-      <div><label>max_tokens 长文</label><input type="number" id="mt-long" value="2600" title="T5 强制长文生成的输出上限"></div>
+      <div><label><span data-i18n="L05">max_tokens 短答</span></label><input type="number" id="mt-short" value="768"></div>
+      <div><label><span data-i18n="L06">max_tokens 长文</span></label><input type="number" id="mt-long" value="2600" title="T5 强制长文生成的输出上限" data-i18n-title="L41"></div>
     </div>
-    <label style="margin-top:10px">思考模式 (enable_thinking)</label>
+    <label style="margin-top:10px"><span data-i18n="L07">思考模式 (enable_thinking)</span></label>
     <select id="opt-thinkmode">
-      <option value="off" selected>关闭（默认，测纯检索）</option>
-      <option value="on">开启（统一使用思考预算）</option>
-      <option value="default">不干预（不发该参数）</option>
+      <option value="off" selected><span data-i18n="L08">关闭（默认，测纯检索）</span></option>
+      <option value="on"><span data-i18n="L09">开启（统一使用思考预算）</span></option>
+      <option value="default"><span data-i18n="L10">不干预（不发该参数）</span></option>
     </select>
     <div id="mt-think-box" style="display:none;margin-top:6px">
-      <label>思考预算 max_tokens（所有任务统一，可改）</label>
+      <label><span data-i18n="L11">思考预算 max_tokens（所有任务统一，可改）</span></label>
       <input type="number" id="mt-think" value="16384">
     </div>
     <div id="thinkmode-hint" class="metric" style="font-size:11.5px;color:var(--dim);min-height:16px"></div>
     <div class="checks" style="margin-top:6px">
-      <label><input type="checkbox" id="opt-stream" checked> 流式 (测 TTFT / tok/s)</label>
-      <label><input type="checkbox" id="opt-auth" checked> 审计授权系统提示 (防把针当注入拒答；关闭可对比 over-refusal)</label>
+      <label><input type="checkbox" id="opt-stream" checked><span data-i18n="L12"> 流式 (测 TTFT / tok/s)</span></label>
+      <label><input type="checkbox" id="opt-auth" checked><span data-i18n="L13"> 审计授权系统提示 (防把针当注入拒答；关闭可对比 over-refusal)</span></label>
     </div>
-    <div class="metric">token 校准系数 chars/token: <b id="cpc">—（首次运行自动校准）</b></div>
+    <div class="metric">token 校准系数 chars/token: <b id="cpc"><span data-i18n="L14">—（首次运行自动校准）</span></b></div>
   </div>
 
   <div class="panel">
-    <h2>2. Haystack 语料</h2>
+    <h2><span data-i18n="L15">2. Haystack 语料</span></h2>
     <select id="corpus-src">
-      <option value="embedded" selected>内置完整语料（Gutenberg 公版书 ~5.3M chars，gzip 内嵌）</option>
-      <option value="file">选择本地 txt 文件（可多选，≤20MB）</option>
-      <option value="tiny">内置小语料（~40KB，冒烟测试用）</option>
-      <option value="paste">粘贴自定义文本</option>
+      <option value="embedded" selected><span data-i18n="L16">内置完整语料（Gutenberg 公版书 ~5.3M chars，gzip 内嵌）</span></option>
+      <option value="file"><span data-i18n="L17">选择本地 txt 文件（可多选，≤20MB）</span></option>
+      <option value="tiny"><span data-i18n="L18">内置小语料（~40KB，冒烟测试用）</span></option>
+      <option value="paste"><span data-i18n="L19">粘贴自定义文本</span></option>
     </select>
     <div id="corpus-file-box" style="display:none">
-      <label>支持多选 .txt，合计上限 20MB</label>
+      <label><span data-i18n="L20">支持多选 .txt，合计上限 20MB</span></label>
       <input type="file" id="corpus-file" accept=".txt,text/plain" multiple>
     </div>
     <div id="corpus-paste-box" style="display:none">
-      <textarea id="corpus-paste" rows="5" placeholder="粘贴任意长文本…"></textarea>
+      <textarea id="corpus-paste" rows="5" placeholder="粘贴任意长文本…" data-i18n-ph="L40"></textarea>
     </div>
-    <div class="btns"><button id="btn-load">加载语料</button><span id="corpus-info" class="metric"></span></div>
+    <div class="btns"><button id="btn-load"><span data-i18n="L21">加载语料</span></button><span id="corpus-info" class="metric"></span></div>
   </div>
 
   <div class="panel">
-    <h2>3. 测试项</h2>
-    <label>上下文长度 (tokens，逗号分隔，目标值)</label>
+    <h2><span data-i18n="L22">3. 测试项</span></h2>
+    <label><span data-i18n="L23">上下文长度 (tokens，逗号分隔，目标值)</span></label>
     <input type="text" id="lengths" value="131072,262144,327680">
-    <label>NIAH 深度 % (needle 位置)</label>
+    <label><span data-i18n="L24">NIAH 深度 % (needle 位置)</span></label>
     <input type="text" id="depths" value="0,25,50,75,100">
     <div class="checks">
-      <label><input type="checkbox" id="t1" checked> T1 单针 NIAH 网格（召回热图）</label>
-      <label><input type="checkbox" id="t2" checked> T2 五针多路召回（检索）</label>
-      <label><input type="checkbox" id="t3" checked> T3 三跳事实链（推理）</label>
-      <label><input type="checkbox" id="t4" checked> T4 计数聚合 ×7</label>
-      <label><input type="checkbox" id="t5" checked> T5 强制长文生成（退化探针）</label>
+      <label><input type="checkbox" id="t1" checked><span data-i18n="L25"> T1 单针 NIAH 网格（召回热图）</span></label>
+      <label><input type="checkbox" id="t2" checked><span data-i18n="L26"> T2 五针多路召回（检索）</span></label>
+      <label><input type="checkbox" id="t3" checked><span data-i18n="L27"> T3 三跳事实链（推理）</span></label>
+      <label><input type="checkbox" id="t4" checked><span data-i18n="L28"> T4 计数聚合 ×7</span></label>
+      <label><input type="checkbox" id="t5" checked><span data-i18n="L29"> T5 强制长文生成（退化探针）</span></label>
     </div>
     <div class="btns">
-      <button id="btn-run" class="primary">▶ 开始测试</button>
-      <button id="btn-stop" class="danger" disabled>■ 停止</button>
-      <button id="btn-report">📊 查看报告</button>
-      <button id="btn-export">导出 JSON</button>
-      <button id="btn-import">导入 JSON</button>
+      <button id="btn-run" class="primary"><span data-i18n="L30">▶ 开始测试</span></button>
+      <button id="btn-stop" class="danger" disabled><span data-i18n="L31">■ 停止</span></button>
+      <button id="btn-report"><span data-i18n="L32">📊 查看报告</span></button>
+      <button id="btn-export"><span data-i18n="L33">导出 JSON</span></button>
+      <button id="btn-import"><span data-i18n="L34">导入 JSON</span></button>
       <input type="file" id="import-file" accept=".json,application/json" style="display:none">
     </div>
-    <div id="status">待命</div>
+    <div id="status"><span data-i18n="L35">待命</span></div>
     <div id="prog-wrap" style="display:none;margin-top:10px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px">
         <span id="prog-label" class="metric">—</span>
@@ -152,22 +153,40 @@ a{color:var(--acc)}
 <!-- ============================== RIGHT: results ============================== -->
 <div>
   <div class="panel">
-    <h2>结果总览</h2>
-    <div id="summary"><span class="metric">尚未运行。提示：先用小长度（如 8192）+ T5 冒烟一遍。</span></div>
+    <h2><span data-i18n="L36">结果总览</span></h2>
+    <div id="summary"><span class="metric"><span data-i18n="L37">尚未运行。提示：先用小长度（如 8192）+ T5 冒烟一遍。</span></span></div>
     <div id="degen-panel"></div>
   </div>
   <div class="grid2">
-    <div class="panel"><h2>召回热图 (T1 长度×深度)</h2><div id="heatmap"><span class="metric">—</span></div></div>
-    <div class="panel"><h2>结果明细</h2><div id="results" style="max-height:480px;overflow:auto"><span class="metric">—</span></div></div>
+    <div class="panel"><h2><span data-i18n="L38">召回热图 (T1 长度×深度)</span></h2><div id="heatmap"><span class="metric">—</span></div></div>
+    <div class="panel"><h2><span data-i18n="L39">结果明细</span></h2><div id="results" style="max-height:480px;overflow:auto"><span class="metric">—</span></div></div>
   </div>
   <div class="panel">
-    <h2>实时日志 <span id="dot"></span></h2>
+    <h2><span data-i18n="L42">实时日志</span> <span id="dot"></span></h2>
     <div id="log"></div>
   </div>
 </div>
 </main>
 
 <script>
+const I18N={"L00": ["LongCtx Console · 长上下文召回/检索/行为退化测试台", "LongCtx Console · Long-Context Retrieval & Behavior Bench"], "L01": ["长上下文 召回/检索/多跳/计数/退化测试 · 单文件版，直连推理端点（需 CORS）", "Retrieval / multi-hop / counting / degeneration bench · single-file, direct endpoint connection (CORS required)"], "L02": ["Base URL (OpenAI 兼容，含 /v1)", "Base URL (OpenAI-compatible, incl. /v1)"], "L03": ["拉取模型", "Fetch models"], "L04": ["API Key (可选)", "API Key (optional)"], "L05": ["max_tokens 短答", "max_tokens short"], "L06": ["max_tokens 长文", "max_tokens long"], "L07": ["思考模式 (enable_thinking)", "Thinking mode (enable_thinking)"], "L08": ["关闭（默认，测纯检索）", "Off (default, pure retrieval)"], "L09": ["开启（统一使用思考预算）", "On (unified thinking budget)"], "L10": ["不干预（不发该参数）", "Default (omit the param)"], "L11": ["思考预算 max_tokens（所有任务统一，可改）", "Thinking max_tokens budget (all tasks, editable)"], "L12": ["流式 (测 TTFT / tok/s)", "Stream (measure TTFT / tok/s)"], "L13": ["审计授权系统提示 (防把针当注入拒答；关闭可对比 over-refusal)", "Audit-authorization system prompt (prevents needle-as-injection refusals; turn off to A/B over-refusal)"], "L14": ["—（首次运行自动校准）", "— (auto-calibrated on first run)"], "L15": ["2. Haystack 语料", "2. Haystack corpus"], "L16": ["内置完整语料（Gutenberg 公版书 ~5.3M chars，gzip 内嵌）", "Embedded full corpus (Gutenberg books ~5.3M chars, gzip)"], "L17": ["选择本地 txt 文件（可多选，≤20MB）", "Choose local .txt files (multi, ≤20MB)"], "L18": ["内置小语料（~40KB，冒烟测试用）", "Embedded tiny corpus (~40KB smoke test)"], "L19": ["粘贴自定义文本", "Paste custom text"], "L20": ["支持多选 .txt，合计上限 20MB", "Multiple .txt supported, ≤20MB total"], "L21": ["加载语料", "Load corpus"], "L22": ["3. 测试项", "3. Test items"], "L23": ["上下文长度 (tokens，逗号分隔，目标值)", "Context lengths (tokens, comma-separated, target)"], "L24": ["NIAH 深度 % (needle 位置)", "NIAH depths % (needle position)"], "L25": ["T1 单针 NIAH 网格（召回热图）", "T1 single-needle NIAH grid (recall heatmap)"], "L26": ["T2 五针多路召回（检索）", "T2 five-needle multi-retrieval"], "L27": ["T3 三跳事实链（推理）", "T3 three-hop fact chain (reasoning)"], "L28": ["T4 计数聚合 ×7", "T4 count aggregation ×7"], "L29": ["T5 强制长文生成（退化探针）", "T5 forced long-form (degeneration probe)"], "L30": ["▶ 开始测试", "▶ Run"], "L31": ["■ 停止", "■ Stop"], "L32": ["📊 查看报告", "📊 Report"], "L33": ["导出 JSON", "Export JSON"], "L34": ["导入 JSON", "Import JSON"], "L35": ["待命", "Idle"], "L36": ["结果总览", "Summary"], "L37": ["尚未运行。提示：先用小长度（如 8192）+ T5 冒烟一遍。", "Not run yet. Tip: smoke-test once with a small length (e.g. 8192) + T5."], "L38": ["召回热图 (T1 长度×深度)", "Recall heatmap (T1 length×depth)"], "L39": ["结果明细", "Details"], "L40": ["粘贴任意长文本…", "Paste long text here…"], "L41": ["T5 强制长文生成的输出上限", "T5 forced long-form output cap"], "L42": ["实时日志", "Live log"]};
+
+function applyLang(lang){
+  LANG=lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const v=I18N[el.dataset.i18n];if(v)el.textContent=lang==="en"?v[1]:v[0];});
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const v=I18N[el.dataset.i18nPh];if(v)el.placeholder=lang==="en"?v[1]:v[0];});
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+    const v=I18N[el.dataset.i18nTitle];if(v)el.title=lang==="en"?v[1]:v[0];});
+  document.documentElement.lang=lang==="en"?"en":"zh-CN";
+  $("lang-zh").classList.toggle("on",lang==="zh");$("lang-en").classList.toggle("on",lang==="en");
+  try{localStorage.setItem("longctx_lang",lang)}catch(e){}
+  try{render();}catch(e){}
+  try{if(document.getElementById("report-overlay")&&document.getElementById("report-overlay").style.display==="block"&&S&&S.results)renderReport($("report-content"),reportData());}catch(e){}
+}
+function t(zh,en2){return LANG==="en"?en2:zh;}
+let LANG="zh";
 "use strict";
 /* ================= state ================= */
 const $=id=>document.getElementById(id);
@@ -231,7 +250,7 @@ async function callApi(messages,maxTokens,onDelta){
     resp=await fetch(base.replace(/\/$/,"")+"/chat/completions",{method:"POST",headers:hdrs,
       body:JSON.stringify(payload),mode:"cors"});
   }catch(e){
-    return{error:`请求发送失败: ${e.message}（若为 CORS/网络错误：给服务端加 CORS 头，如 vLLM 加 --allow-origins '*'，llama.cpp 加 --origins '*'；或确认端点可达/页面用https时端点也是https）`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage:null,finish:null,ttft:null};
+    return{error:`${t('请求发送失败','Request failed')}: ${e.message}${t('（若为 CORS/网络错误：给服务端加 CORS 头，如 vLLM 加 --allow-origins \'*\'，llama.cpp 加 --origins \'*\'；或确认端点可达/页面用https时端点也是https）','(if CORS/network error: enable CORS on the server, e.g. vLLM --allow-origins \'*\' or llama.cpp --origins \'*\'; or check endpoint reachability)')}`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage:null,finish:null,ttft:null};
   }
   const ctype=resp.headers.get("content-type")||"";
   if(!resp.ok){const t=await resp.text();return{error:`HTTP ${resp.status}: ${t.slice(0,300)}`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage,finish,ttft};}
@@ -281,25 +300,25 @@ async function loadCorpus(){
   const src=$("corpus-src").value;let text="";
   try{
     if(src==="embedded"){
-      if(!S.embedded){log("解压内置语料（首次约 1-2 秒）…");
-        S.embedded=await gunzipB64(CORPUS_GZ);log("内置语料解压完成: "+(S.embedded.length/1024/1024).toFixed(2)+"M chars","ok");}
+      if(!S.embedded){log(t("解压内置语料（首次约 1-2 秒）…","Decompressing embedded corpus (~1-2s first time)…"));
+        S.embedded=await gunzipB64(CORPUS_GZ);log(t("内置语料解压完成: ","Embedded corpus ready: ")+(S.embedded.length/1024/1024).toFixed(2)+"M chars","ok");}
       text=S.embedded;
     }
     else if(src==="file"){
       const files=[...($("corpus-file").files||[])];
-      if(!files.length){log("请先选择 .txt 文件","bad");return;}
+      if(!files.length){log(t("请先选择 .txt 文件","Choose .txt files first"),"bad");return;}
       let total=0;const bufs=[];
       for(const f of files){const t=await f.text();bufs.push(t);total+=t.length;
-        if(total>20*1024*1024){log("语料超过 20MB 上限，已截断","bad");break;}}
+        if(total>20*1024*1024){log(t("语料超过 20MB 上限，已截断","Corpus exceeds 20MB limit, truncated"),"bad");break;}}
       text=bufs.join("\n\n");
     }
     else if(src==="tiny"){text=TINY_CORPUS;}
     else text=$("corpus-paste").value;
-  }catch(e){log("语料加载失败: "+e,"bad");return;}
-  if(!text||text.length<1000){log("语料过短(<1KB)，无法构造测试","bad");return;}
+  }catch(e){log(t("语料加载失败: ","Corpus load failed: ")+e,"bad");return;}
+  if(!text||text.length<1000){log(t("语料过短(<1KB)，无法构造测试","Corpus too short (<1KB)"),"bad");return;}
   S.corpus=text.replace(/\s+/g," ");
   $("corpus-info").textContent=`${(S.corpus.length/1024/1024).toFixed(2)} M chars ≈ ${Math.round(S.corpus.length/(S.cpc||3.8)/1024)}K tokens`;
-  log(`语料就绪: ${(S.corpus.length/1024).toFixed(0)}K chars`,"ok");
+  log(`${t('语料就绪','Corpus ready')}: ${(S.corpus.length/1024).toFixed(0)}K chars`,"ok");
 }
 async function calibrate(){
   if(!S.corpus)await loadCorpus();if(!S.corpus)return null;
@@ -307,9 +326,9 @@ async function calibrate(){
   const r=await callApi([{role:"user",content:sample+"\n\nReply OK."}],16,null);
   const pt=r.usage&&r.usage.prompt_tokens;
   if(pt){S.cpc=sample.length/pt;$("cpc").textContent=S.cpc.toFixed(3)+`（${sample.length} chars → ${pt} tokens）`;
-    log(`校准: chars/token=${S.cpc.toFixed(3)}`,"ok");return S.cpc;}
-  S.cpc=3.8;$("cpc").textContent="3.800（估算——服务端未返回 usage）";
-  log("警告: 无 usage，token 数按 3.8 chars/token 估算","bad");return S.cpc;
+    log(`${t('校准','Calibrated')}: chars/token=${S.cpc.toFixed(3)}`,"ok");return S.cpc;}
+  S.cpc=3.8;$("cpc").textContent="3.800"+t("（估算——服务端未返回 usage）"," (estimated — server gave no usage)");
+  log(t("警告: 无 usage，token 数按 3.8 chars/token 估算","Warning: no usage; token counts estimated at 3.8 chars/token"),"bad");return S.cpc;
 }
 
 /* ================= context builder & tasks ================= */
@@ -374,7 +393,7 @@ async function runOne(task,length,depth){
   let maxTok=task==="T5"?T.max:(task==="T1"?+( $("mt-short").value):T.max);
   if(tm==="on"){maxTok=+( $("mt-think").value)||16384;}
   else if(tm==="default"){maxTok=Math.max(maxTok,task==="T5"?2500:1024);}
-  status(`运行 ${task} @ ${fmtK(length)}t depth=${depth}% · max_tokens=${maxTok}${tm==='on'?' (思考预算)':''} …`);
+  status(`运行 ${task} @ ${fmtK(length)}t depth=${depth}% · max_tokens=${maxTok}${tm==='on'?t(' (思考预算)',' (thinking budget)'):''} …`);
   const msgs=($("opt-auth").checked?[{role:"system",content:SYS_AUDIT}]:[]).concat({role:"user",content:T.ctx+QBOX(T.q)});
   const r=await callApi(msgs,maxTok,streamDelta());
   const ans=(r.content||r.reasoning||"");
@@ -393,8 +412,8 @@ async function runOne(task,length,depth){
   // auto-recalibrate if context undershot target
   if(res.prompt_tokens&&res.prompt_tokens<0.985*length&&!S.stop){
     S.cpc=S.cpc*(length/res.prompt_tokens)*1.01;
-    $("cpc").textContent=S.cpc.toFixed(3)+"（已在线修正）";
-    log(`${task}@${fmtK(length)} 实际 ${res.prompt_tokens}t < 目标，修正 cpc=${S.cpc.toFixed(2)} 重试一次`);
+    $("cpc").textContent=S.cpc.toFixed(3)+t("（已在线修正）"," (re-calibrated online)");
+    log(`${task}@${fmtK(length)} ${t('实际','actual')} ${res.prompt_tokens}t < ${t('目标','target')}, ${t('修正 cpc','recalibrated cpc')}=${S.cpc.toFixed(2)}, ${t('重试一次','retrying once')}`);
     S.results.pop();return runOne(task,length,depth);
   }
   return res;
@@ -403,7 +422,7 @@ function streamDelta(){
   if(!$("opt-stream").checked)return null;
   let acc="";
   return(kind,ch)=>{acc+=ch;const t=performance.now();
-    if(t-S.lastDelta>400){S.lastDelta=t;status(`${kind==="r"?"🧠思考":"✍️输出"} ${acc.length} chars …`);}};
+    if(t-S.lastDelta>400){S.lastDelta=t;status(`${kind==="r"?t("🧠思考","🧠thinking"):t("✍️输出","✍️output")} ${acc.length} chars …`);}};
 }
 async function runAll(){
   if(S.running)return;
@@ -413,7 +432,7 @@ async function runAll(){
   const lengths=$("lengths").value.split(",").map(x=>parseInt(x.trim())).filter(x=>x>0);
   const depths=$("depths").value.split(",").map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
   for(const L of lengths)if(L*S.cpc>S.corpus.length){
-    log(`语料不够 ${fmtK(L)} tokens（上限约 ${fmtK(Math.floor(S.corpus.length/S.cpc))}t），将截断`,"bad");break;}
+    log(`${t('语料不够','Corpus too short for')} ${fmtK(L)} tokens (${t('上限约','max ~')}${fmtK(Math.floor(S.corpus.length/S.cpc))}t), ${t('将截断','will truncate')}`,"bad");break;}
   const jobs=[];
   for(const L of lengths){
     if($("t1").checked)for(const d of depths)jobs.push(["T1",L,d]);
@@ -422,25 +441,25 @@ async function runAll(){
     if($("t4").checked)jobs.push(["T4",L,-1]);
     if($("t5").checked)jobs.push(["T5",L,-1]);
   }
-  if(!jobs.length)return log("未勾选任何测试项","bad");
+  if(!jobs.length)return log(t(t("未勾选任何测试项","No test items selected"),"No test items selected"),"bad");
   S.running=true;S.stop=false;S.results=[];render();
   $("btn-run").disabled=true;$("btn-stop").disabled=false;$("dot").innerHTML='<span id="running-dot"></span>';
-  log(`开始 ${jobs.length} 个用例（长度×${lengths.join("/")}）`,"ok");
+  log(`${t('开始','Starting')} ${jobs.length} ${t('个用例','cases')} (${t('长度','lengths')}×${lengths.join("/")})`,"ok");
   S.prog={done:0,total:0,idx:0,count:jobs.length,hist:[]};
   for(const[task,L]of jobs)S.prog.total+=L;
   $("prog-wrap").style.display="";$("prog-bar").style.width="0%";
-  updateProgress("估算中…（第 1 个用例完成后出 ETA）");
+  updateProgress(t(t("估算中…（第 1 个用例完成后出 ETA）","Estimating… ETA appears after the first case"),"Estimating… ETA appears after the first case"));
   for(const[task,L,d]of jobs){
     S.prog.idx++;
     const t0=performance.now();
-    try{await runOne(task,L,d);}catch(e){log(`${task}@${L} 异常: ${e}`,"bad");}
+    try{await runOne(task,L,d);}catch(e){log(`${task}@${L} ${t('异常','error')}: ${e}`,"bad");}
     const took=(performance.now()-t0)/1000;
     S.prog.done+=L;S.prog.hist.push([L,took]);
     updateProgress();
   }
   $("prog-wrap").style.display="none";
   S.running=false;$("btn-run").disabled=false;$("btn-stop").disabled=true;$("dot").innerHTML="";
-  status("完成");render();log("全部完成，可导出 JSON","ok");
+  status(t("完成","Done"));render();log(t("全部完成，可导出 JSON","All done; export JSON available"),"ok");
 }
 
 /* ================= rendering ================= */
@@ -453,7 +472,7 @@ function updateProgress(msg){
   const P=S.prog;if(!P)return;
   const pct=P.total?Math.min(100,P.done/P.total*100):0;
   $("prog-bar").style.width=pct.toFixed(1)+"%";
-  $("prog-label").textContent=`${P.idx}/${P.count} 用例 · ${pct.toFixed(0)}%`;
+  $("prog-label").textContent=`${P.idx}/${P.count} ${t('用例','cases')} · ${pct.toFixed(0)}%`;
   if(msg){$("prog-eta").textContent=msg;return;}
   if(!P.done){$("prog-eta").textContent="—";return;}
   // 线性拟合（若全部样本同 token 数则退化为均值比例）
@@ -465,7 +484,7 @@ function updateProgress(msg){
   else{b=(n*sxy-sx*sy)/denom;a=(sy-b*sx)/n;}
   if(b<0){b=sy/sx;a=0;}
   const etaS=Math.max(0,a+b*(P.total-P.done));
-  $("prog-eta").textContent=`剩余 ≈ ${fmtEta(etaS)}`;
+  $("prog-eta").textContent=`${t('剩余','remaining')} ≈ ${fmtEta(etaS)}`;
 }
 function fmtEta(s){
   if(s<90)return Math.round(s)+"s";
@@ -476,7 +495,7 @@ function render(){
   const R=S.results;
   /* summary */
   const byL={};R.forEach(r=>{(byL[r.target_tokens]=byL[r.target_tokens]||[]).push(r);});
-  let h="<table><tr><th>目标长度</th><th>实际pt</th><th>T1 召回</th><th>其他任务</th><th>退化标志</th><th>均速 tok/s</th></tr>";
+  let h=`<table><tr><th>${t("目标长度","Target len")}</th><th>${t("实际pt","Actual pt")}</th><th>${t("T1 召回","T1 recall")}</th><th>${t("其他任务","Other tasks")}</th><th>${t("退化标志","Degeneration")}</th><th>${t("均速","Avg")} tok/s</th></tr>`;
   for(const L of Object.keys(byL).sort((a,b)=>a-b)){
     const ts=byL[L],t1=ts.filter(t=>t.task==="T1"),ot=ts.filter(t=>t.task!=="T1");
     const deg=[...new Set(ts.flatMap(t=>["loop","caveman","repetitive"].filter(k=>t.metrics[k])))];
@@ -484,14 +503,14 @@ function render(){
     h+=`<tr><td>${fmtK(+L)}</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()||"?"}</td>`+
        `<td class="${t1.every(t=>t.ok)?"pass":(t1.some(t=>t.ok)?"warn":"fail")}">${t1.filter(t=>t.ok).length}/${t1.length||"-"}</td>`+
        `<td class="${ot.every(t=>t.ok)?"pass":(ot.some(t=>t.ok)?"warn":"fail")}">${ot.filter(t=>t.ok).length}/${ot.length||"-"}</td>`+
-       `<td class="${deg.length?"fail":"pass"}">${deg.join(",")||"无"}</td>`+
+       `<td class="${deg.length?"fail":"pass"}">${deg.join(",")||t("无","none")}</td>`+
        `<td>${tps.length?Math.round(tps.reduce((a,b)=>a+b,0)/tps.length):"?"}</td></tr>`;}
   h+="</table>";
   if(R.length)$("summary").innerHTML=h;
   /* degeneration */
   const bad=R.filter(t=>t.metrics.loop||t.metrics.caveman||t.metrics.repetitive);
   $("degen-panel").innerHTML=bad.length?
-    `<div style="margin-top:10px"><b style="color:var(--bad)">⚠ ${bad.length} 个响应出现退化标志：</b>`+
+    `<div style="margin-top:10px"><b style="color:var(--bad)">⚠ ${bad.length} ${t("个响应出现退化标志：","responses flagged:")}</b>`+
     bad.map(t=>`<div class="metric">${t.task}@${fmtK(t.target_tokens)}: `+
       (t.metrics.loop?'<span class="badge loop">LOOP ×'+t.metrics.max10gram_repeat+'</span>':"")+
       (t.metrics.caveman?'<span class="badge caveman">CAVEMAN fw='+t.metrics.function_word_ratio+'</span>':"")+
@@ -500,7 +519,7 @@ function render(){
   const lengths=[...new Set(R.map(r=>r.target_tokens))].sort((a,b)=>a-b);
   const ds=[...new Set(R.filter(r=>r.task==="T1").map(r=>r.depth))].sort((a,b)=>a-b);
   if(lengths.length&&ds.length){
-    let m='<table class="hm"><tr><th>长度\\深度</th>'+ds.map(d=>`<th>${d}%</th>`).join("")+"</tr>";
+    let m='<table class="hm"><tr><th>'+t('长度\\深度','Len\\Depth')+'</th>'+ds.map(d=>`<th>${d}%</th>`).join("")+"</tr>";
     for(const L of lengths){m+=`<tr><td>${fmtK(L)}t</td>`;
       for(const d of ds){const t=R.find(r=>r.task==="T1"&&r.target_tokens===L&&r.depth===d);
         m+=t?`<td class="${t.ok?"p":"f"}" title="${esc(t.answer.slice(0,80))}">${t.ok?"✓":"✗"}</td>`:'<td class="n">·</td>';}
@@ -508,7 +527,7 @@ function render(){
     $("heatmap").innerHTML=m+"</table>";}
   /* detail table */
   if(R.length){
-    let d='<table><tr><th>任务</th><th>长度</th><th>深</th><th>结果</th><th>pt</th><th>ttft</th><th>耗时</th><th>tok/s</th><th>指标</th><th>备注</th></tr>';
+    let d=`<table><tr><th>${t("任务","Task")}</th><th>${t("长度","Len")}</th><th>${t("深","Dep")}</th><th>${t("结果","Result")}</th><th>pt</th><th>ttft</th><th>${t("耗时","Time")}</th><th>tok/s</th><th>${t("指标","Metrics")}</th><th>${t("备注","Notes")}</th></tr>`;
     for(const t of R){
       const tps=t.completion_tokens&&t.elapsed?Math.round(t.completion_tokens/t.elapsed):"?";
       const bad=["loop","caveman","repetitive"].some(k=>t.metrics[k]);
@@ -517,7 +536,7 @@ function render(){
          `<td>${t.prompt_tokens??""}</td><td>${t.ttft??""}</td><td>${t.elapsed}s</td><td>${tps}</td>`+
          `<td class="${bad?"warn":""}">${t.metrics.words}w fw=${t.metrics.function_word_ratio??"-"} d2=${t.metrics.distinct2??"-"}</td>`+
          `<td>${esc(t.note||t.error||"")}</td></tr>`+
-         `<tr><td colspan="10" style="color:var(--dim);font-size:11.5px">预期: ${esc(t.expect)} → 答: ${esc((t.answer||"").slice(0,200))}</td></tr>`;}
+         `<tr><td colspan="10" style="color:var(--dim);font-size:11.5px">${t("预期","Expected")}: ${esc(t.expect)} → ${t("答","Got")}: ${esc((t.answer||"").slice(0,200))}</td></tr>`;}
     $("results").innerHTML=d+"</table>";}
 }
 $("btn-export").onclick=()=>{
@@ -530,29 +549,29 @@ $("import-file").onchange=async e=>{
   try{
     const d=JSON.parse(await f.text());
     const tests=Array.isArray(d)?d:(d.tests||[]);
-    if(!tests.length)throw new Error("文件里没有 tests 数据");
+    if(!tests.length)throw new Error(t("文件里没有 tests 数据","No tests data in file"));
     S.results=tests;
     if(d.meta){
       if(d.meta.base)$("base").value=d.meta.base;
       if(d.meta.model)$("model").value=d.meta.model;
-      if(d.meta.cpc){S.cpc=d.meta.cpc;$("cpc").textContent=d.meta.cpc.toFixed(3)+"（自导入文件）";}
-      else if(d.meta.chars_per_token){S.cpc=d.meta.chars_per_token;$("cpc").textContent=d.meta.chars_per_token.toFixed(3)+"（自导入文件）";}
+      if(d.meta.cpc){S.cpc=d.meta.cpc;$("cpc").textContent=d.meta.cpc.toFixed(3)+t("（自导入文件）"," (from imported file)");}
+      else if(d.meta.chars_per_token){S.cpc=d.meta.chars_per_token;$("cpc").textContent=d.meta.chars_per_token.toFixed(3)+t("（自导入文件）"," (from imported file)");}
     }
     render();
-    log(`已导入 ${tests.length} 条结果（${(d.meta&&d.meta.model)||"未知模型"}），可点「查看报告」`,'ok');
+    log(`${t("已导入","Imported")} ${tests.length} ${t("条结果","results")} (${(d.meta&&d.meta.model)||t("未知模型","unknown model")}), ${t("可点查看报告","open Report to view")}`,'ok');
     openReport();
-  }catch(err){log("导入失败: "+err.message,"bad");}
+  }catch(err){log(t("导入失败: ","Import failed: ")+err.message,"bad");}
   e.target.value="";
 };
 $("btn-run").onclick=runAll;
-$("btn-stop").onclick=()=>{S.stop=true;log("停止请求已发出（等当前请求结束）…")};
+$("btn-stop").onclick=()=>{S.stop=true;log(t("停止请求已发出（等当前请求结束）…","Stop requested (waiting for current request)…"))};
 $("opt-thinkmode").onchange=e=>{
   const v=e.target.value;
   $("mt-think-box").style.display=v==="on"?"":"none";
   $("mt-short").disabled=$("mt-long").disabled=(v==="on");
   $("thinkmode-hint").textContent=v==="on"
-    ?"已开启：所有任务统一使用思考预算（上限不影响正常提前停止）"
-    :v==="default"?"不干预：max_tokens 取 max(任务默认, 1024/2500)":"";
+    ?t("已开启：所有任务统一使用思考预算（上限不影响正常提前停止）","On: all tasks share the thinking budget (a higher cap does not delay normal stopping)")
+    :v==="default"?t("不干预：max_tokens 取 max(任务默认, 1024/2500)","Default: max_tokens = max(task default, 1024/2500)"):"";
 };
 $("btn-load").onclick=loadCorpus;
 $("corpus-src").onchange=e=>{$("corpus-file-box").style.display=e.target.value==="file"?"":"none";
@@ -564,8 +583,8 @@ $("btn-models").onclick=async()=>{
     const ms=JSON.parse(t).data.map(m=>m.id);
     $("model-list").innerHTML="<div style='margin-top:8px'>"+ms.map(m=>
       `<button style="margin:2px;font-size:12px" onclick="$('model').value='${esc(m)}'">${esc(m)}</button>`).join("")+"</div>";
-    log("发现模型: "+ms.join(", "),"ok");
-  }catch(e){log("拉取 /models 失败: "+e+(e.message.includes("fetch")?"（多为 CORS 拦截或地址不可达）":""),"bad");}};
+    log(t(t("发现模型: ","Models found: "),"Models found: ")+ms.join(", "),"ok");
+  }catch(e){log(t("拉取 /models 失败: ","Fetch /models failed: ")+e+(e.message.includes("fetch")?t("（多为 CORS 拦截或地址不可达）","(likely CORS block or unreachable address)"):""),"bad");}};
 </script>
 
 <!-- ============ 报告弹窗 ============ -->
@@ -594,9 +613,9 @@ $("btn-models").onclick=async()=>{
 <div id="report-overlay" class="report-overlay" style="display:none">
  <div class="report-box">
   <div class="report-top">
-   <h1>🧵 长上下文测试报告 <span id="r-model" class="rp-meta"></span></h1>
+   <h1>🧵 ${t("长上下文测试报告","Long-Context Test Report")} <span id="r-model" class="rp-meta"></span></h1>
    <div class="btns" style="margin:0">
-    <button onclick="downloadReportHTML()" title="导出自包含 report.html 文件，可直接发人">导出 HTML</button>
+    <button onclick="downloadReportHTML()" title="导出自包含 report.html 文件，可直接发人" data-i18n-title="R00">导出 HTML</button>
     <button onclick="closeReport()" class="danger">关闭 ✕</button>
    </div>
   </div>
@@ -612,73 +631,75 @@ const TASK_INFO={
  T4:{title:"T4 · 计数聚合 —— 全局扫描",desc:"<span class='td-title'>方法与目的</span>一个随机短语用不同句式插入 7 次、散落在 5%~96% 随机位置，问出现次数。没有任何一句可以局部读完就回答，必须对<b>整个</b>上下文做全局扫描——直接检验注意力是否贯穿全文。LLM 普遍弱项（GPT 级也常数错），重点看随长度的衰减趋势"},
  T5:{title:"T5 · 强制长文生成 —— 退化探针",desc:"<span class='td-title'>方法与目的</span>先列出文档中 3 个 Project 的码（检索），紧接着要求写 ≥350 词分析长文且不许提前停。长输入+长输出叠加是 KV cache 退化、注意力漂移的最易暴露工况；对输出计算退化指标：<b>10-gram 重复≥3 判 LOOP</b>（复读循环）、<b>虚词比&lt;0.30 且句长&lt;10 判 CAVEMAN</b>（电报体）、<b>distinct-2&lt;0.60 判 REPETITIVE</b>"}
 };
+const TASK_INFO_EN={"T1": {"title": "T1 · Single-needle NIAH grid — base recall", "desc": "<span class='td-title'>Method & purpose</span>Trim the corpus to the target length and insert one random-code needle (a narrative sentence; a fresh code each run defeats memorization) at the specified depth (0/25/50/75/100%); the model must reply with only the 8-char code. The answer definitely exists in the document, so PASS/FAIL is clean. The length×depth grid separates two failure modes: <b>mid-depth failures at the same length = lost-in-the-middle</b>; <b>degradation with length at fixed depth = effective context boundary</b> (nominal window vs actually usable length)"}, "T2": {"title": "T2 · Five-needle recall — breadth", "desc": "<span class='td-title'>Method & purpose</span>Insert 5 needles (different projects & codes) spread across 10/30/50/70/90% depth; all must be listed correctly to pass. Beyond T1 it tests <b>multi-target attention</b>: realistic tasks (e.g. extract every amount from a contract) where the model must list all 5 without missing any"}, "T3": {"title": "T3 · Three-hop fact chain — cross-position reasoning", "desc": "<span class='td-title'>Method & purpose</span>Three facts planted at 15%/45%/75% form a chain (key hidden in lighthouse → lighthouse demolished to museum → museum moved to warehouse); ask where the key is now. All three must be read and chained; two hops gives the wrong answer. Separates <b>retrieval from reasoning</b>: T1/T2 test findability, T3 tests whether found facts get used"}, "T4": {"title": "T4 · Count aggregation — global scan", "desc": "<span class='td-title'>Method & purpose</span>Insert one random phrase 7 times with varied sentence forms at random positions in 5%–96%; ask the count. No local reading suffices — it requires <b>a global scan of the entire context</b> — testing whether attention spans the whole document. A universal LLM weakness (even GPT-class models often miscount); watch the decay trend with length"}, "T5": {"title": "T5 · Forced long-form generation — degeneration probe", "desc": "<span class='td-title'>Method & purpose</span>First list the 3 project codes from the document (retrieval), then require a ≥350-word analysis essay without early stop. Long input + long output is where KV-cache degradation and attention drift show up; degeneration metrics on the output: <b>10-gram repeat ≥3 flags LOOP</b> (repetition loop), <b>function-word ratio &lt;0.30 & short sentences flag CAVEMAN</b> (caveman-speak), <b>distinct-2 &lt;0.60 flags REPETITIVE</b>"}};
+function taskInfo(){return LANG==='en'?TASK_INFO_EN:TASK_INFO;}
 function renderReport(rc,data){
  rc.innerHTML="";
  const meta=data.meta||{},tests=data.tests||[];
- const deg=tests.filter(t=>t.metrics&&(t.metrics.loop||t.metrics.caveman||t.metrics.repetitive));
- const errs=tests.filter(t=>t.error);
- const fails=tests.filter(t=>!t.ok&&!t.error);
- const maxpt=Math.max(0,...tests.map(t=>t.prompt_tokens||0));
+ const deg=tests.filter(r=>r.metrics&&(r.metrics.loop||r.metrics.caveman||r.metrics.repetitive));
+ const errs=tests.filter(r=>r.error);
+ const fails=tests.filter(r=>!r.ok&&!r.error);
+ const maxpt=Math.max(0,...tests.map(r=>r.prompt_tokens||0));
  $("r-model").textContent=`· ${esc(meta.model||"?")} @ ${esc(meta.base||"?")}`;
- rc.innerHTML=`<div class="rp-meta">端点 ${esc(meta.base||"")} · 模型 <b>${esc(meta.model||"")}</b> · ${esc(meta.started||"")} · 校准 ${esc(meta.chars_per_token||"?")} chars/token · 语料 ${meta.corpus_chars?Math.round(meta.corpus_chars/1024)+"K chars":"-"} · 共 ${tests.length} 用例</div>
+ rc.innerHTML=`<div class="rp-meta">${t("端点","Endpoint")} ${esc(meta.base||"")} · ${t("模型","Model")} <b>${esc(meta.model||"")}</b> · ${esc(meta.started||"")} · 校准 ${esc(meta.chars_per_token||"?")} chars/token · 语料 ${meta.corpus_chars?Math.round(meta.corpus_chars/1024)+"K chars":"-"} · 共 ${tests.length} 用例</div>
  <div class="panel rp-kpi">
-  <div><div class="big ${fails.length+errs.length?"warn":"pass"}">${tests.length-errs.length-fails.length}/${tests.length}</div><div class="l">通过用例</div></div>
-  <div><div class="big">${fmtK(maxpt)}</div><div class="l">实测最大 prompt tokens</div></div>
-  <div><div class="big ${deg.length?"fail":"pass"}">${deg.length}</div><div class="l">退化标志响应 (loop/caveman/rep)</div></div>
-  <div><div class="big ${errs.length?"fail":"pass"}">${errs.length}</div><div class="l">请求错误 (含超上下文)</div></div>
+  <div><div class="big ${fails.length+errs.length?"warn":"pass"}">${tests.length-errs.length-fails.length}/${tests.length}</div><div class="l">${t("通过用例","Cases passed")}</div></div>
+  <div><div class="big">${fmtK(maxpt)}</div><div class="l">${t("实测最大 prompt tokens","Max measured prompt tokens")}</div></div>
+  <div><div class="big ${deg.length?"fail":"pass"}">${deg.length}</div><div class="l">${t("退化标志响应 (loop/caveman/rep)","Responses flagged (loop/caveman/rep)")}</div></div>
+  <div><div class="big ${errs.length?"fail":"pass"}">${errs.length}</div><div class="l">${t("请求错误 (含超上下文)","Request errors (incl. over-context)")}</div></div>
  </div>`;
- const byL={};tests.forEach(t=>{(byL[t.target_tokens]=byL[t.target_tokens]||[]).push(t);});
- h=`<h2 class="rp-h2">总览（按上下文长度）</h2><div class="panel"><table><tr><th>目标长度</th><th>实际 max pt</th><th>T1 单针召回</th><th>T2-T5</th><th>退化</th><th>TTFT 中位</th></tr>`;
+ const byL={};tests.forEach(r=>{(byL[r.target_tokens]=byL[r.target_tokens]||[]).push(r);});
+ let h=`<h2 class="rp-h2">${t("总览（按上下文长度）","Summary by context length")}</h2><div class="panel"><table><tr><th>${t("目标长度","Target len")}</th><th>${t("实际 max pt","Actual max pt")}</th><th>${t("T1 单针召回","T1 recall")}</th><th>T2-T5</th><th>${t("退化","Degeneration")}</th><th>${t("TTFT 中位","Median TTFT")}</th></tr>`;
  for(const L of Object.keys(byL).sort((a,b)=>a-b)){const ts=byL[L];
-  const t1=ts.filter(t=>t.task==="T1"),ot=ts.filter(t=>t.task!=="T1");
-  const dg=[...new Set(ts.flatMap(t=>["loop","caveman","repetitive"].filter(k=>t.metrics&&t.metrics[k])))];
-  const ttfts=t1.map(t=>t.ttft).filter(x=>x!=null).sort((a,b)=>a-b);
-  h+=`<tr><td>${fmtK(+L)}t</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()}</td>
-  <td class="${t1.every(t=>t.ok)?"pass":(t1.some(t=>t.ok)?"warn":"fail")}">${t1.filter(t=>t.ok).length}/${t1.length}</td>
-  <td class="${ot.every(t=>t.ok)?"pass":(ot.some(t=>t.ok)?"warn":"fail")}">${ot.filter(t=>t.ok).length}/${ot.length}</td>
-  <td class="${dg.length?"fail":"pass"}">${dg.join(", ")||"无"}</td>
+  const t1=ts.filter(r=>r.task==="T1"),ot=ts.filter(r=>r.task!=="T1");
+  const dg=[...new Set(ts.flatMap(r=>["loop","caveman","repetitive"].filter(k=>r.metrics&&r.metrics[k])))];
+  const ttfts=t1.map(r=>r.ttft).filter(x=>x!=null).sort((a,b)=>a-b);
+  h+=`<tr><td>${fmtK(+L)}t</td><td>${Math.max(...ts.map(r=>r.prompt_tokens||0)).toLocaleString()}</td>
+  <td class="${t1.every(r=>r.ok)?"pass":(t1.some(r=>r.ok)?"warn":"fail")}">${t1.filter(r=>r.ok).length}/${t1.length}</td>
+  <td class="${ot.every(r=>r.ok)?"pass":(ot.some(r=>r.ok)?"warn":"fail")}">${ot.filter(r=>r.ok).length}/${ot.length}</td>
+  <td class="${dg.length?"fail":"pass"}">${dg.join(", ")||t("无","none")}</td>
   <td>${ttfts.length?ttfts[Math.floor(ttfts.length/2)]+"s":"-"}</td></tr>`;}
  h+=`</table></div>`;
  /* 各任务区块：说明在前，结果在后 */
  const order=["T1","T2","T3","T4","T5"];
  for(const tk of order){
-  const info=TASK_INFO[tk],ts=tests.filter(t=>t.task===tk);
+  const info=taskInfo()[tk],ts=tests.filter(r=>r.task===tk);
   if(!ts.length)continue;
   h+=`<h2 class="rp-h2">${info.title}</h2>`;
   h+=`<div class="task-desc">${info.desc}</div>`;
-  h+=`<div class="panel"><table><tr><th>长度</th><th>深度</th><th>结果</th><th>pt</th><th>ttft</th><th>耗时</th><th>tok/s</th><th>退化指标</th><th>备注</th></tr>`;
-  for(const t of ts){
-   const tps=t.completion_tokens&&t.elapsed?Math.round(t.completion_tokens/t.elapsed):"?";
-   const m=t.metrics||{};
+  h+=`<div class="panel"><table><tr><th>${t("长度","Len")}</th><th>${t("深度","Depth")}</th><th>${t("结果","Result")}</th><th>pt</th><th>ttft</th><th>${t("耗时","Time")}</th><th>tok/s</th><th>${t("退化指标","Degeneration")}</th><th>${t("备注","Notes")}</th></tr>`;
+  for(const r of ts){
+   const tps=r.completion_tokens&&r.elapsed?Math.round(r.completion_tokens/r.elapsed):"?";
+   const m=r.metrics||{};
    const bad=["loop","caveman","repetitive"].some(k=>m[k]);
-   h+=`<tr><td>${fmtK(t.target_tokens)}</td><td>${t.depth}%</td>
-   <td class="${t.error?"fail":(t.ok?"pass":"fail")}">${t.error?"ERR":(t.ok?"PASS":"FAIL")}</td>
-   <td>${t.prompt_tokens??"-"}</td><td>${t.ttft??"-"}</td><td>${t.elapsed}s</td><td>${tps}</td>
+   h+=`<tr><td>${fmtK(r.target_tokens)}</td><td>${r.depth}%</td>
+   <td class="${r.error?"fail":(r.ok?"pass":"fail")}">${r.error?"ERR":(r.ok?"PASS":"FAIL")}</td>
+   <td>${r.prompt_tokens??"-"}</td><td>${r.ttft??"-"}</td><td>${r.elapsed}s</td><td>${tps}</td>
    <td class="${bad?"warn":""}">${m.words??"-"}w fw=${m.function_word_ratio??"-"} d2=${m.distinct2??"-"}</td>
-   <td>${esc(t.note||"")}${t.error?" "+esc(String(t.error).slice(0,140)):""}</td></tr>
-   <tr class="rp-detail"><td colspan="9"><details><summary>预期 ${esc(String(t.expect||"")).slice(0,160)} → 模型回答：${esc((t.answer||"").replace(/\s+/g," ").slice(0,90))||"(空)"}</summary><pre class="rp-ans">${esc(t.answer||"(无正文，可能被思考截断)")}</pre></details></td></tr>`;}
+   <td>${esc(r.note||"")}${r.error?" "+esc(String(r.error).slice(0,140)):""}</td></tr>
+   <tr class="rp-detail"><td colspan="9"><details><summary>${t("预期","Expected")} ${esc(String(r.expect||"")).slice(0,160)} → ${t("模型回答","Answer")}: ${esc((r.answer||"").replace(/\s+/g," ").slice(0,90))||t("(空)","(empty)")}</summary><pre class="rp-ans">${esc(r.answer||t("(无正文，可能被思考截断)","(no content — likely truncated by thinking)"))}</pre></details></td></tr>`;}
   h+=`</table></div>`;
  }
  /* T1 热图单独成节（网格视图） */
- const t1s=tests.filter(t=>t.task==="T1");
+ const t1s=tests.filter(r=>r.task==="T1");
  if(t1s.length){
-  const lengths=[...new Set(t1s.map(t=>t.target_tokens))].sort((a,b)=>a-b);
-  const ds=[...new Set(t1s.map(t=>t.depth))].sort((a,b)=>a-b);
-  h+=`<h2 class="rp-h2">T1 召回热图（长度 × 深度 网格视图）</h2><div class="panel rp-hm"><table class="hm"><tr><th>长度\\深度</th>${ds.map(d=>`<th>${d}%</th>`).join("")}</tr>`;
+  const lengths=[...new Set(t1s.map(r=>r.target_tokens))].sort((a,b)=>a-b);
+  const ds=[...new Set(t1s.map(r=>r.depth))].sort((a,b)=>a-b);
+  h+=`<h2 class="rp-h2">${t("T1 召回热图（长度 × 深度 网格视图）","T1 recall heatmap (length × depth)")}</h2><div class="panel rp-hm"><table class="hm"><tr><th>${t('长度\\深度','Len\\Depth')}</th>${ds.map(d=>`<th>${d}%</th>`).join("")}</tr>`;
   for(const L of lengths){h+=`<tr><td>${fmtK(L)}t</td>`;
-   for(const d of ds){const t=t1s.find(t=>t.target_tokens===L&&t.depth===d);
-    h+=t?`<td class="${t.ok?"p":"f"}" title="${esc((t.answer||t.error||"").slice(0,120))}">${t.ok?"✓":"✗"}</td>`:"<td class='n'>·</td>";}
+   for(const d of ds){const cell=t1s.find(r=>r.target_tokens===L&&r.depth===d);
+    h+=cell?`<td class="${cell.ok?"p":"f"}" title="${esc((cell.answer||cell.error||"").slice(0,120))}">${cell.ok?"✓":"✗"}</td>`:"<td class='n'>·</td>";}
    h+="</tr>";}
-  h+=`</table><div class='rp-meta'>深度 = needle 在上下文中的相对位置（0% 开头，100% 结尾；中间最易漏检 = lost-in-the-middle）。悬停格子可看模型回答。</div></div>`;
+  h+=`</table><div class='rp-meta'>${t("深度 = needle 在上下文中的相对位置（0% 开头，100% 结尾；中间最易漏检 = lost-in-the-middle）。悬停格子可看模型回答。","Depth = needle position relative to context (0% start, 100% end; the middle is most prone to misses = lost-in-the-middle). Hover a cell to preview the answer.")}</div></div>`;
  }
  /* 退化汇总表 */
- const longts=tests.filter(t=>t.metrics&&t.metrics.words>40);
+ const longts=tests.filter(r=>r.metrics&&r.metrics.words>40);
  if(longts.length){
-  h+=`<h2 class="rp-h2">行为退化指标汇总（≥40 词的响应）</h2><div class="panel">`;
-  h+=deg.length?`<b style="color:var(--bad)">⚠ ${deg.length} 个响应触发标志</b>`:`<b style="color:var(--ok)">✓ 无响应触发 loop / caveman / repetitive</b>`;
-  h+=`<table><tr><th>用例</th><th>词数</th><th>function-word 比<br><span style="font-weight:400">(&lt;0.30 且句长&lt;10 → caveman)</span></th><th>distinct-2<br><span style="font-weight:400">(&lt;0.60 且&gt;150词 → rep)</span></th><th>10-gram 最大重复<br><span style="font-weight:400">(≥3 → loop)</span></th><th>平均句长</th></tr>`;
-  for(const t of longts){const m=t.metrics;
-   h+=`<tr><td>${t.task}@${fmtK(t.target_tokens)} d${t.depth}</td><td>${m.words}</td>
+  h+=`<h2 class="rp-h2">${t("行为退化指标汇总（≥40 词的响应）","Degeneration metrics (responses ≥40 words)")}</h2><div class="panel">`;
+  h+=deg.length?`<b style="color:var(--bad)">⚠ ${deg.length} ${t("个响应触发标志","responses flagged")}</b>`:`<b style="color:var(--ok)">✓ ${t("无响应触发 loop / caveman / repetitive","no response triggered loop/caveman/repetitive")}</b>`;
+  h+=`<table><tr><th>${t("用例","Case")}</th><th>${t("词数","Words")}</th><th>function-word 比<br><span style="font-weight:400">(&lt;0.30 且句长&lt;10 → caveman)</span></th><th>distinct-2<br><span style="font-weight:400">(&lt;0.60 且&gt;150词 → rep)</span></th><th>10-gram 最大重复<br><span style="font-weight:400">(≥3 → loop)</span></th><th>平均句长</th></tr>`;
+  for(const r of longts){const m=r.metrics;
+   h+=`<tr><td>${r.task}@${fmtK(r.target_tokens)} d${r.depth}</td><td>${m.words}</td>
    <td class="${m.caveman?"fail":""}">${m.function_word_ratio??"-"}</td>
    <td class="${m.repetitive?"fail":""}">${m.distinct2??"-"}</td>
    <td class="${m.loop?"fail":""}">${m.max10gram_repeat}</td><td>${m.avg_words_per_sentence??"-"}</td></tr>`;}
@@ -693,7 +714,7 @@ function reportData(){
 }
 function openReport(){
  if(!S.results.length){renderReport($("report-content"),{meta:{},tests:[]});
-  $("report-content").insertAdjacentHTML("afterbegin",'<div class="panel"><b style="color:var(--warn)">暂无结果数据。</b>先运行测试，或点「导入 JSON」载入历史结果后重新打开报告。</div>');
+  $("report-content").insertAdjacentHTML("afterbegin",'<div class="panel"><b style="color:var(--warn)">${t("暂无结果数据。","No result data yet.")}</b>${t("先运行测试，或点「导入 JSON」载入历史结果后重新打开报告。","Run a test, or import JSON first, then open the report.")}</div>');
   $("report-overlay").style.display="block";document.body.style.overflow="hidden";return;}
  renderReport($("report-content"),reportData());
  $("report-overlay").style.display="block";document.body.style.overflow="hidden";
@@ -719,14 +740,17 @@ function downloadReportHTML(){
  ".task-desc{background:#0f1a2b;border:1px solid #1f4a75;border-left:3px solid var(--acc);border-radius:8px;padding:10px 14px;margin:14px 0 10px;font-size:12.8px;line-height:1.7}",
  ".task-desc b{color:var(--acc)}.task-desc .td-title{font-weight:700;color:var(--fg);display:block;margin-bottom:2px}"].join("\n");
  const html="<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'>"
-  +"<title>长上下文测试报告 · "+esc(d.meta.model||"")+"</title><style>"+css+"</style></head>"
-  +"<body><main><h1>🧵 长上下文测试报告</h1><div class='rp-meta'>端点 "+esc(d.meta.base)+" · 模型 <b>"+esc(d.meta.model)+"</b> · "+esc(d.meta.started)+" · 共 "+d.tests.length+" 用例</div>"
+  +"<title>${t('长上下文测试报告','Long-Context Test Report')} · "+esc(d.meta.model||"")+"</title><style>"+css+"</style></head>"
+  +"<body><main><h1>🧵 ${t('长上下文测试报告','Long-Context Test Report')}</h1><div class='rp-meta'>${t('端点','Endpoint')} "+esc(d.meta.base)+" · ${t('模型','Model')} <b>"+esc(d.meta.model)+"</b> · "+esc(d.meta.started)+" · ${t('共','total')} "+d.tests.length+" ${t('用例','cases')}</div>"
   +inner+"</main></body></html>";
  const blob=new Blob([html],{type:"text/html;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
  a.download="longctx_report_"+(d.meta.model||"unknown").replace(/[^A-Za-z0-9._-]/g,"")+".html";a.click();
  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
+$("lang-zh").onclick=()=>applyLang("zh");$("lang-en").onclick=()=>applyLang("en");
+try{LANG=localStorage.getItem("longctx_lang")||"zh"}catch(e){}
+applyLang(LANG);
 $("btn-report").onclick=openReport;
 $("report-overlay").addEventListener("click",e=>{if(e.target===$("report-overlay"))closeReport();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeReport();});
