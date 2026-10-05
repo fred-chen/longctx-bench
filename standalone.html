@@ -253,7 +253,7 @@ async function callApi(messages,maxTokens,onDelta){
     return{error:`${t('请求发送失败','Request failed')}: ${e.message}${t('（若为 CORS/网络错误：给服务端加 CORS 头，如 vLLM 加 --allow-origins \'*\'，llama.cpp 加 --origins \'*\'；或确认端点可达/页面用https时端点也是https）','(if CORS/network error: enable CORS on the server, e.g. vLLM --allow-origins \'*\' or llama.cpp --origins \'*\'; or check endpoint reachability)')}`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage:null,finish:null,ttft:null};
   }
   const ctype=resp.headers.get("content-type")||"";
-  if(!resp.ok){const t=await resp.text();return{error:`HTTP ${resp.status}: ${t.slice(0,300)}`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage,finish,ttft};}
+  if(!resp.ok){const etxt=await resp.text();return{error:`HTTP ${resp.status}: ${etxt.slice(0,300)}`,content:"",reasoning:"",elapsed:(performance.now()-t0)/1000,usage,finish,ttft};}
   if(payload.stream){
     const reader=resp.body.getReader(),dec=new TextDecoder();let buf="",doneFlag=false;
     for(;;){
@@ -308,7 +308,7 @@ async function loadCorpus(){
       const files=[...($("corpus-file").files||[])];
       if(!files.length){log(t("请先选择 .txt 文件","Choose .txt files first"),"bad");return;}
       let total=0;const bufs=[];
-      for(const f of files){const t=await f.text();bufs.push(t);total+=t.length;
+      for(const f of files){const txt=await f.text();bufs.push(txt);total+=txt.length;
         if(total>20*1024*1024){log(t("语料超过 20MB 上限，已截断","Corpus exceeds 20MB limit, truncated"),"bad");break;}}
       text=bufs.join("\n\n");
     }
@@ -421,8 +421,8 @@ async function runOne(task,length,depth){
 function streamDelta(){
   if(!$("opt-stream").checked)return null;
   let acc="";
-  return(kind,ch)=>{acc+=ch;const t=performance.now();
-    if(t-S.lastDelta>400){S.lastDelta=t;status(`${kind==="r"?t("🧠思考","🧠thinking"):t("✍️输出","✍️output")} ${acc.length} chars …`);}};
+  return(kind,ch)=>{acc+=ch;const now=performance.now();
+    if(now-S.lastDelta>400){S.lastDelta=now;status(`${kind==="r"?t("🧠思考","🧠thinking"):t("✍️输出","✍️output")} ${acc.length} chars …`);}};
 }
 async function runAll(){
   if(S.running)return;
@@ -441,14 +441,14 @@ async function runAll(){
     if($("t4").checked)jobs.push(["T4",L,-1]);
     if($("t5").checked)jobs.push(["T5",L,-1]);
   }
-  if(!jobs.length)return log(t(t("未勾选任何测试项","No test items selected"),"No test items selected"),"bad");
+  if(!jobs.length)return log(t("未勾选任何测试项","No test items selected"),"bad");
   S.running=true;S.stop=false;S.results=[];render();
   $("btn-run").disabled=true;$("btn-stop").disabled=false;$("dot").innerHTML='<span id="running-dot"></span>';
   log(`${t('开始','Starting')} ${jobs.length} ${t('个用例','cases')} (${t('长度','lengths')}×${lengths.join("/")})`,"ok");
   S.prog={done:0,total:0,idx:0,count:jobs.length,hist:[]};
   for(const[task,L]of jobs)S.prog.total+=L;
   $("prog-wrap").style.display="";$("prog-bar").style.width="0%";
-  updateProgress(t(t("估算中…（第 1 个用例完成后出 ETA）","Estimating… ETA appears after the first case"),"Estimating… ETA appears after the first case"));
+  updateProgress(t("估算中…（第 1 个用例完成后出 ETA）","Estimating… ETA appears after the first case"));
   for(const[task,L,d]of jobs){
     S.prog.idx++;
     const t0=performance.now();
@@ -497,46 +497,46 @@ function render(){
   const byL={};R.forEach(r=>{(byL[r.target_tokens]=byL[r.target_tokens]||[]).push(r);});
   let h=`<table><tr><th>${t("目标长度","Target len")}</th><th>${t("实际pt","Actual pt")}</th><th>${t("T1 召回","T1 recall")}</th><th>${t("其他任务","Other tasks")}</th><th>${t("退化标志","Degeneration")}</th><th>${t("均速","Avg")} tok/s</th></tr>`;
   for(const L of Object.keys(byL).sort((a,b)=>a-b)){
-    const ts=byL[L],t1=ts.filter(t=>t.task==="T1"),ot=ts.filter(t=>t.task!=="T1");
-    const deg=[...new Set(ts.flatMap(t=>["loop","caveman","repetitive"].filter(k=>t.metrics[k])))];
-    const tps=ts.filter(t=>t.completion_tokens&&t.elapsed).map(t=>Math.round(t.completion_tokens/t.elapsed));
-    h+=`<tr><td>${fmtK(+L)}</td><td>${Math.max(...ts.map(t=>t.prompt_tokens||0)).toLocaleString()||"?"}</td>`+
-       `<td class="${t1.every(t=>t.ok)?"pass":(t1.some(t=>t.ok)?"warn":"fail")}">${t1.filter(t=>t.ok).length}/${t1.length||"-"}</td>`+
-       `<td class="${ot.every(t=>t.ok)?"pass":(ot.some(t=>t.ok)?"warn":"fail")}">${ot.filter(t=>t.ok).length}/${ot.length||"-"}</td>`+
+    const ts=byL[L],t1=ts.filter(r=>r.task==="T1"),ot=ts.filter(r=>r.task!=="T1");
+    const deg=[...new Set(ts.flatMap(r=>["loop","caveman","repetitive"].filter(k=>r.metrics[k])))];
+    const tps=ts.filter(r=>r.completion_tokens&&r.elapsed).map(r=>Math.round(r.completion_tokens/r.elapsed));
+    h+=`<tr><td>${fmtK(+L)}</td><td>${Math.max(...ts.map(r=>r.prompt_tokens||0)).toLocaleString()||"?"}</td>`+
+       `<td class="${t1.every(r=>r.ok)?"pass":(t1.some(r=>r.ok)?"warn":"fail")}">${t1.filter(r=>r.ok).length}/${t1.length||"-"}</td>`+
+       `<td class="${ot.every(r=>r.ok)?"pass":(ot.some(r=>r.ok)?"warn":"fail")}">${ot.filter(r=>r.ok).length}/${ot.length||"-"}</td>`+
        `<td class="${deg.length?"fail":"pass"}">${deg.join(",")||t("无","none")}</td>`+
        `<td>${tps.length?Math.round(tps.reduce((a,b)=>a+b,0)/tps.length):"?"}</td></tr>`;}
   h+="</table>";
   if(R.length)$("summary").innerHTML=h;
   /* degeneration */
-  const bad=R.filter(t=>t.metrics.loop||t.metrics.caveman||t.metrics.repetitive);
+  const bad=R.filter(r=>r.metrics.loop||r.metrics.caveman||r.metrics.repetitive);
   $("degen-panel").innerHTML=bad.length?
     `<div style="margin-top:10px"><b style="color:var(--bad)">⚠ ${bad.length} ${t("个响应出现退化标志：","responses flagged:")}</b>`+
-    bad.map(t=>`<div class="metric">${t.task}@${fmtK(t.target_tokens)}: `+
-      (t.metrics.loop?'<span class="badge loop">LOOP ×'+t.metrics.max10gram_repeat+'</span>':"")+
-      (t.metrics.caveman?'<span class="badge caveman">CAVEMAN fw='+t.metrics.function_word_ratio+'</span>':"")+
-      (t.metrics.repetitive?'<span class="badge rep">REP d2='+t.metrics.distinct2+'</span>':"")+`</div>`).join("")+`</div>`:"";
+    bad.map(r=>`<div class="metric">${r.task}@${fmtK(r.target_tokens)}: `+
+      (r.metrics.loop?'<span class="badge loop">LOOP ×'+r.metrics.max10gram_repeat+'</span>':"")+
+      (r.metrics.caveman?'<span class="badge caveman">CAVEMAN fw='+r.metrics.function_word_ratio+'</span>':"")+
+      (r.metrics.repetitive?'<span class="badge rep">REP d2='+r.metrics.distinct2+'</span>':"")+`</div>`).join("")+`</div>`:"";
   /* heatmap */
   const lengths=[...new Set(R.map(r=>r.target_tokens))].sort((a,b)=>a-b);
   const ds=[...new Set(R.filter(r=>r.task==="T1").map(r=>r.depth))].sort((a,b)=>a-b);
   if(lengths.length&&ds.length){
     let m='<table class="hm"><tr><th>'+t('长度\\深度','Len\\Depth')+'</th>'+ds.map(d=>`<th>${d}%</th>`).join("")+"</tr>";
     for(const L of lengths){m+=`<tr><td>${fmtK(L)}t</td>`;
-      for(const d of ds){const t=R.find(r=>r.task==="T1"&&r.target_tokens===L&&r.depth===d);
-        m+=t?`<td class="${t.ok?"p":"f"}" title="${esc(t.answer.slice(0,80))}">${t.ok?"✓":"✗"}</td>`:'<td class="n">·</td>';}
+      for(const d of ds){const cell=R.find(r=>r.task==="T1"&&r.target_tokens===L&&r.depth===d);
+        m+=cell?`<td class="${cell.ok?"p":"f"}" title="${esc(cell.answer.slice(0,80))}">${cell.ok?"✓":"✗"}</td>`:'<td class="n">·</td>';}
       m+="</tr>";}
     $("heatmap").innerHTML=m+"</table>";}
   /* detail table */
   if(R.length){
     let d=`<table><tr><th>${t("任务","Task")}</th><th>${t("长度","Len")}</th><th>${t("深","Dep")}</th><th>${t("结果","Result")}</th><th>pt</th><th>ttft</th><th>${t("耗时","Time")}</th><th>tok/s</th><th>${t("指标","Metrics")}</th><th>${t("备注","Notes")}</th></tr>`;
-    for(const t of R){
-      const tps=t.completion_tokens&&t.elapsed?Math.round(t.completion_tokens/t.elapsed):"?";
-      const bad=["loop","caveman","repetitive"].some(k=>t.metrics[k]);
-      d+=`<tr><td>${t.task}</td><td>${fmtK(t.target_tokens)}</td><td>${t.depth}%</td>`+
-         `<td class="${t.error?"fail":(t.ok?"pass":"fail")}">${t.error?"ERR":(t.ok?"PASS":"FAIL")}</td>`+
-         `<td>${t.prompt_tokens??""}</td><td>${t.ttft??""}</td><td>${t.elapsed}s</td><td>${tps}</td>`+
-         `<td class="${bad?"warn":""}">${t.metrics.words}w fw=${t.metrics.function_word_ratio??"-"} d2=${t.metrics.distinct2??"-"}</td>`+
-         `<td>${esc(t.note||t.error||"")}</td></tr>`+
-         `<tr><td colspan="10" style="color:var(--dim);font-size:11.5px">${t("预期","Expected")}: ${esc(t.expect)} → ${t("答","Got")}: ${esc((t.answer||"").slice(0,200))}</td></tr>`;}
+    for(const r of R){
+      const tps=r.completion_tokens&&r.elapsed?Math.round(r.completion_tokens/r.elapsed):"?";
+      const bad=["loop","caveman","repetitive"].some(k=>r.metrics[k]);
+      d+=`<tr><td>${r.task}</td><td>${fmtK(r.target_tokens)}</td><td>${r.depth}%</td>`+
+         `<td class="${r.error?"fail":(r.ok?"pass":"fail")}">${r.error?"ERR":(r.ok?"PASS":"FAIL")}</td>`+
+         `<td>${r.prompt_tokens??""}</td><td>${r.ttft??""}</td><td>${r.elapsed}s</td><td>${tps}</td>`+
+         `<td class="${bad?"warn":""}">${r.metrics.words}w fw=${r.metrics.function_word_ratio??"-"} d2=${r.metrics.distinct2??"-"}</td>`+
+         `<td>${esc(r.note||r.error||"")}</td></tr>`+
+         `<tr><td colspan="10" style="color:var(--dim);font-size:11.5px">${t("预期","Expected")}: ${esc(r.expect)} → ${t("答","Got")}: ${esc((r.answer||"").slice(0,200))}</td></tr>`;}
     $("results").innerHTML=d+"</table>";}
 }
 $("btn-export").onclick=()=>{
@@ -579,11 +579,11 @@ $("corpus-src").onchange=e=>{$("corpus-file-box").style.display=e.target.value==
 $("btn-models").onclick=async()=>{
   try{
     const r=await fetch($("base").value.replace(/\/$/,"")+"/models",{mode:"cors"});
-    const t=await r.text();
-    const ms=JSON.parse(t).data.map(m=>m.id);
+    const txt=await r.text();
+    const ms=JSON.parse(txt).data.map(m=>m.id);
     $("model-list").innerHTML="<div style='margin-top:8px'>"+ms.map(m=>
       `<button style="margin:2px;font-size:12px" onclick="$('model').value='${esc(m)}'">${esc(m)}</button>`).join("")+"</div>";
-    log(t(t("发现模型: ","Models found: "),"Models found: ")+ms.join(", "),"ok");
+    log(t("发现模型: ","Models found: ")+ms.join(", "),"ok");
   }catch(e){log(t("拉取 /models 失败: ","Fetch /models failed: ")+e+(e.message.includes("fetch")?t("（多为 CORS 拦截或地址不可达）","(likely CORS block or unreachable address)"):""),"bad");}};
 </script>
 
