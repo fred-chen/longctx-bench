@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title><span data-i18n="L00">LongCtx Console · 长上下文召回/检索/行为退化测试台</span></title>
+<title>LongCtx Console · 长上下文召回/检索/行为退化测试台</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--fg:#c9d1d9;--dim:#8b949e;
@@ -180,6 +180,7 @@ function applyLang(lang){
   document.querySelectorAll('[data-i18n-title]').forEach(el=>{
     const v=I18N[el.dataset.i18nTitle];if(v)el.title=lang==="en"?v[1]:v[0];});
   document.documentElement.lang=lang==="en"?"en":"zh-CN";
+  document.title=lang==="en"?"LongCtx Console · Long-Context Retrieval & Behavior Bench":"LongCtx Console · 长上下文召回/检索/行为退化测试台";
   $("lang-zh").classList.toggle("on",lang==="zh");$("lang-en").classList.toggle("on",lang==="en");
   try{localStorage.setItem("longctx_lang",lang)}catch(e){}
   try{render();}catch(e){}
